@@ -22,6 +22,7 @@ class Packet(object):
     def pack_data(self, _data: Tuple[Any]) -> None:
         # Pack data passed in the format:
         # ((data, data_type), ...)
+        print(_data)
         for data, type in _data:
             if type == dataTypes.STRING: # Cheap ass ULEB128
                 self.data += b'\x0b' + len(data).to_bytes(1, 'little') + data.encode()
