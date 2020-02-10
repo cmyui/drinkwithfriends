@@ -34,7 +34,7 @@ glob.db = dbConnector.SQLPool(
 class Connection(object):
     def __init__(self, data: bytes) -> None:
         self.raw: List[str] = data.decode().split('\r\n\r\n', maxsplit = 1)
-        self.headers: List[str] = []
+        self.headers: Dict[str, str] = []
         self.parse_headers(self.raw[0].split('\r\n'))
         self.body: str = self.raw[1]
 
