@@ -102,23 +102,19 @@ class Server(object):
 
             res = glob.db.fetch('SELECT id, password, privileges FROM users WHERE username_safe = %s', [username.replace(' ', '_').strip()])
 
-            u = User(res['id'], username, game_version)
             if not res:
                 self.sock.send(bytes([packetID.server_loginNoSuchUsername]))
                 return
 
-            print(
-                client_password.encode(),
-                res['password'].encode(),
-                checkpw(client_password.encode(), res['password'].encode())
-            )
-
+            u = User(res['id'], username, res['privileges'], game_version)
             # TODO: fix password check
             # if not checkpw(client_password.encode(), res['password'].encode()):
             #     self.sock.send(bytes([packetID.server_loginIncorrectPassword]))
             #     return
 
-            if not res['privileges']:
+            del res
+
+            if not u.privileges:
                 self.sock.send(bytes([packetID.server_loginBanned]))
                 return
 
@@ -126,9 +122,18 @@ class Server(object):
 
             glob.users.append(u)
             self.sock.send(bytes([packetID.server_loginSuccess])) # send success
+            p = Packet(packetID.server_userInfo)
+            p.pack_data((
+                (u.id, dataTypes.USHORT),
+                (len(glob.users), dataTypes.USHORT), # Length of the list of online users
+                ((x, dataTypes.USHORT) for x in glob.users) # List of online users
+            ))
+            self.sock.send(p.get_data)
             return
 
-        elif p.id == packetID.client_shot: # Taking a shot
+        elif p.id == packetID.client_addBottle: # Adding a bottle to a user's inventory.
+            pass
+        elif p.id == packetID.client_takeShot: # Taking a shot.
             pass
 
         return

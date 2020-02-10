@@ -4,4 +4,8 @@ server_loginInvalidData = 3
 server_loginNoSuchUsername = 4
 server_loginIncorrectPassword = 5
 server_loginBanned = 6
-client_shot = 7
+
+server_userInfo = 7
+
+client_addBottle = 8
+client_takeShot = 9

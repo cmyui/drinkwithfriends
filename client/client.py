@@ -18,6 +18,8 @@ class Client(object):
     def __init__(self, start_loop: bool = False):
         self.user = None
 
+        self.online_users: List[int] = []
+
         if start_loop:
             self._handle_connections()
 
@@ -61,9 +63,14 @@ class Client(object):
                 print('Your account has been banned.')
             elif resp == packetID.server_loginSuccess:
                 print('Authenticated.')
+                print(sock.recv(2), sock.recv(2))
+                exit(1)
                 self.user = User(sock.recv(2), username, _version)
-            else:
-                print(f'Invalid packetID {resp}')
+                for _ in range(sock.recv(2)):
+                    self.online_users.append(sock.recv(2))
+
+                print(f'self.online_users: {self.online_users}')
+            else: print(f'Invalid packetID {resp}')
             return
         else: print('how did i get here?')
 
