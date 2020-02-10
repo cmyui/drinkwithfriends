@@ -1,7 +1,9 @@
-import socket
+from socket import socket, AF_INET, SOCK_STREAM, error as sock_err
 from sys import exit
 from time import sleep
 #from bcrypt import hashpw, gensalt
+
+from objects import glob
 
 from common.constants import dataTypes
 from common.constants import packetID
@@ -11,49 +13,56 @@ from common.helpers.packetHelper import Packet
 global _version
 _version = 100
 
-with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+class Client(object):
+    def __init__(self, start_loop: bool = False):
+        self.user = None
 
-    try: s.connect(('51.79.17.191', 6999))
-    except socket.error as err:
-        print(f'Failed to establish a connection to the server: {err}.')
-        exit(1)
+        if start_loop:
+            self._handle_connections()
 
-    print('Connection established.')
+    def _handle_connections(self) -> None:
+        while True:
+            with socket(AF_INET, SOCK_STREAM) as s:
+                self.handle_connection(s)
+        return
 
-    while True: # Loop until they login
-        print('Attempting to login to the server..')
-        p = Packet(packetID.client_login)
-        p.pack_data((
-            (input('Username: '), dataTypes.STRING),
-            (input('Password: '), dataTypes.STRING),
-            #(hashpw(input('Password: '), gensalt()), dataTypes.STRING), # TODO: maybe use?
-            (_version, dataTypes.UINT)
-        ))
+    def handle_connection(self, sock: socket) -> None:
+        try: sock.connect((glob.ip, glob.port))
+        except sock_err as err:
+            print(f'Failed to establish a connection to the server: {err}.')
+            return
 
-        s.send(p.get_data)
-        try: resp = ord(s.recv(1))
-        except:
-            print('Failed to recieve value from server.')
-            continue
+        # Connection established
+        if not self.user: # Login
+            p = Packet(packetID.client_login)
+            p.pack_data((
+                (input('Username: '), dataTypes.STRING),
+                (input('Password: '), dataTypes.STRING),
+                (_version, dataTypes.UINT)
+            ))
 
-        if resp == packetID.server_loginInvalidData:
-            print('Invalid credential format.') # TODO: give credential format..
-        elif resp == packetID.server_loginNoSuchUsername:
-            print('No such username found.')
-        elif resp == packetID.server_loginIncorrectPassword:
-            print('Incorrect password.')
-        elif resp == packetID.server_loginBanned:
-            print('Your account has been banned.')
-            exit(1) # Rest in peace.
-        elif resp == packetID.server_loginSuccess:
-            print('Authenticated.')
-            break
-        else:
-            print(f'Invalid packetID {resp}')
-            exit(1)
+            sock.send(p.get_data)
+            try: resp = ord(sock.recv(1))
+            except:
+                print('Failed to recieve value from server.')
+                return
 
+            if resp == packetID.server_loginInvalidData:
+                print('Invalid login data.')
+            elif resp == packetID.server_loginNoSuchUsername:
+                print('No such username found.')
+            elif resp == packetID.server_loginIncorrectPassword:
+                print('Incorrect password.')
+            elif resp == packetID.server_loginBanned:
+                print('Your account has been banned.')
+            elif resp == packetID.server_loginSuccess:
+                print('Authenticated.')
+            else:
+                print(f'Invalid packetID {resp}')
+            return
+        else: print('how did i get here?')
 
-    s.close()
-    #exit(0)
+if __name__ == '__main__':
+    Client(True)
 
-print('Connection closed.')
+print('Thanks for playing! <3')

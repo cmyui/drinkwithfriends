@@ -6,9 +6,6 @@ from objects.user import User
 
 start_time: float = time()
 
-# Connections served.
-served: int = 0
-
 users: List[User] = []
 
 db: Optional[MySQLConnectionPool] = None
