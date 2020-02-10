@@ -4,6 +4,7 @@ from sys import exit
 from common.constants import dataTypes
 from common.constants import packetID
 from common.helpers.packetHelper import Packet
+from objects import glob
 
 
 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -17,10 +18,17 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
 
     # Login
     print('Attempting to login to the server..')
-    s.send(Packet(packetID.client_login).get_data)
+    p = Packet(packetID.client_login)
+    p.pack_data((
+        ('cmyui', dataTypes.STRING), # Username
+        (glob.config['version'], dataTypes.FLOAT) # Game version
+    ))
 
-    s.recv(128)
+    s.send(p.get_data)
 
+    data = s.recv(1)
+    if data: print(f'success - {data}')
+    else: print(f'failure - {data}')
 
 
     s.close()

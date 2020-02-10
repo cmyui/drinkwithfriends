@@ -62,8 +62,8 @@ class Packet(object):
 
     def read_data(self, data) -> None:
         self.data = bytearray(data.encode())
-        self.id, self.length = _unpack('<hi', self.data)
-        self.offset += calcsize('<hi')
+        self.id, self.length = _unpack('<hi', self.data[self.offset:self.offset + 6]) # calcsize('<hi')
+        self.offset += 6#calcsize('<hi')
         return
 
     @staticmethod
