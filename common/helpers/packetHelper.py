@@ -23,7 +23,10 @@ class Packet(object):
         # Pack data passed in the format:
         # ((data, data_type), ...)
         for data, type in _data:
-            if type == dataTypes.STRING: # Cheap ass ULEB128
+            if type == dataTypes.INT_LIST:
+                self.data.extend(*(x.to_bytes(2, 'little') for x in data))
+                continue
+            elif type == dataTypes.STRING: # Cheap ass ULEB128
                 self.data += b'\x0b' + len(data).to_bytes(1, 'little') + data.encode()
                 continue
 
