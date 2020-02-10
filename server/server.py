@@ -65,7 +65,7 @@ def handle_connection(conn: socket) -> None:
     p.read_data(c.body)
 
     if p.id == 1: # Login packet
-        print(p.unpack_data((dataTypes.STRING),))
+        print(p.unpack_data((dataTypes.STRING,)))
     return
 
 if __name__ == '__main__':

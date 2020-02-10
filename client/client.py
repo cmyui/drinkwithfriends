@@ -19,7 +19,7 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
     print('Attempting to login to the server..')
     s.send(Packet(packetID.client_login).get_data)
 
-    s.recv()
+    s.recv(128)
 
 
 
