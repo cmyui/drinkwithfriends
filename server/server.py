@@ -38,7 +38,7 @@ class Connection(object):
 
     def parse_request(self) -> None:
         self.parse_headers()
-        self.body = self.raw_request[1].split('\n')
+        self.body = self.raw_request[1]#.split('\n')
 
     def parse_headers(self) -> None:
         for line in self.raw_request[0].split('\r\n'):
