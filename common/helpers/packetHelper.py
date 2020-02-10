@@ -40,7 +40,7 @@ class Packet(object):
                 if self.data[self.offset] == 11: # String exists
                     self.offset += 1
 
-                    length: int = int.from_bytes(self.data[self.offset], byteorder='little')
+                    length: int = self.data[self.offset]
                     print(f'len: {length}')
                     self.offset += 1
 
