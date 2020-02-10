@@ -62,7 +62,8 @@ def handle_connection(conn: socket) -> None:
 
     c = Connection(data)
     p = Packet()
-    print(p.read_data(c.body))
+    p.read_data(c.body)
+    print(p.id)
     return
 
 if __name__ == '__main__':
