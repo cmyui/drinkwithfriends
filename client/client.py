@@ -31,7 +31,10 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         ))
 
         s.send(p.get_data)
-        resp = ord(s.recv(1))
+        try: resp = ord(s.recv(1))
+        except:
+            print(f'FAILED - {resp}')
+            continue
 
         if resp == packetID.server_loginInvalidData:
             print('Invalid credential format.') # TODO: give credential format..

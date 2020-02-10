@@ -74,17 +74,12 @@ def handle_connection(conn: socket) -> None:
                 dataTypes.STRING, # Password
                 dataTypes.UINT # Game version
             ))
-
-            if any((len(username) not in range(3, 17), len(client_password) not in range(6, 32))):
-                raise Exception('Invalid login data recieved.')
-
-            # TODO: future 'anticheat' checks with game_version
-
-            u = User(username, game_version)
-        except Exception as err:
-            print(f'[WARN] {err}')
+        except:
             conn.send(bytes([packetID.server_loginInvalidData]))
             return
+
+        # TODO: future 'anticheat' checks with game_version
+        u = User(username, game_version)
 
         res = glob.db.fetch('SELECT id, password, privileges FROM users WHERE username_safe = %s', [u.username_safe])
         if not res:
