@@ -4,6 +4,7 @@ from typing import List, Dict, Optional
 from socket import socket, AF_INET, SOCK_STREAM
 from os import path, chmod, remove
 from json import loads
+from bcrypt import checkpw
 import mysql.connector
 
 from common.constants import dataTypes
@@ -11,6 +12,7 @@ from common.constants import packetID
 from common.helpers.packetHelper import Packet
 from common.db import dbConnector
 from objects import glob
+from objects.user import User
 
 from colorama import init as clr_init, Fore as colour
 clr_init(autoreset=True)
@@ -19,15 +21,15 @@ with open(f'{path.dirname(path.realpath(__file__))}/config.json', 'r') as f:
     glob.config = loads(f.read())
 
 """ Attempt to connect to MySQL. """
-# glob.db = dbConnector.SQLPool(
-#     pool_size = 4,
-#     config = {
-#         'user': glob.config['mysql_user'],
-#         'password': glob.config['mysql_passwd'],
-#         'host': glob.config['mysql_host'],
-#         'database': glob.config['mysql_database']
-#     }
-# )
+glob.db = dbConnector.SQLPool(
+    pool_size = 4,
+    config = {
+        'user': glob.config['mysql_user'],
+        'password': glob.config['mysql_passwd'],
+        'host': glob.config['mysql_host'],
+        'database': glob.config['mysql_database']
+    }
+)
 
 class Connection(object):
     def __init__(self, request_data: bytes) -> None:
@@ -65,9 +67,47 @@ def handle_connection(conn: socket) -> None:
     p = Packet()
     p.read_data(c.body)
 
-    if p.id == 1: # Login packet
-        print(p.unpack_data((dataTypes.STRING, dataTypes.UINT)))
-        conn.send(b'\x01') # send success
+    if p.id == packetID.client_login: # Login packet
+        try:
+            username, client_password, game_version = p.unpack_data(( # pylint: disable=unbalanced-tuple-unpacking
+                dataTypes.STRING, # Username
+                dataTypes.STRING, # Password
+                dataTypes.UINT # Game version
+            ))
+
+            if any(len(username) not in range(3, 17), len(client_password) != 32, not int(game_version)):
+                raise Exception('Invalid login data recieved.')
+
+            # TODO: future 'anticheat' checks with game_version
+
+            u = User(username, game_version)
+        except Exception as err:
+            print(f'[WARN] {err}')
+            conn.send(bytes([packetID.server_loginInvalidData]))
+            return
+
+        res = glob.db.fetch('SELECT id, password, privileges FROM users WHERE username_safe = %s', [u.username_safe])
+        if not res:
+            conn.send(bytes([packetID.server_loginNoSuchUsername]))
+            return
+
+        if not checkpw(client_password.encode(), res['password']):
+            conn.send(bytes([packetID.server_loginIncorrectPassword]))
+            return
+
+        if not res['privileges']:
+            conn.send(bytes([packetID.server_loginBanned]))
+            return
+
+        """ Login success, nothing wrong™️ """
+
+        glob.users.append(u)
+        conn.send(bytes([packetID.server_loginSuccess])) # send success
+        return
+
+    elif p.id == packetID.client_shot: # Taking a shot
+        pass
+
     return
 
 if __name__ == '__main__':
@@ -76,6 +116,7 @@ if __name__ == '__main__':
     while True:
         conn, _ = sock.accept()
         with conn: handle_connection(conn)
+        glob.served += 1
 
 # Free SQL connections
 glob.db.pool._remove_connections()

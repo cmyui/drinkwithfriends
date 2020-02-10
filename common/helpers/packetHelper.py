@@ -48,8 +48,8 @@ class Packet(object):
                     self.offset += length
 
                 else:
-                    print(f'invalid - {self.data} - {self.data[self.offset]}')
-                    pass
+                    print(f'invalid str - {self.data} - {self.data[self.offset]}')
+                    self.offset += 1
                 continue
 
             fmt: str = self.get_fmtstr(type)
