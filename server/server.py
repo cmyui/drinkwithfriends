@@ -4,7 +4,7 @@ from typing import List, Dict, Optional
 from socket import socket, AF_INET, SOCK_STREAM
 from os import path, chmod, remove
 from json import loads
-from bcrypt import checkpw
+from bcrypt import checkpw, hashpw, gensalt
 import mysql.connector
 
 from common.constants import dataTypes
@@ -75,9 +75,7 @@ def handle_connection(conn: socket) -> None:
                 dataTypes.UINT # Game version
             ))
 
-            print(f'\n{username}\n{client_password}\n{game_version}\n')
-
-            if any((len(username) not in range(3, 17), len(client_password) != 32, not int(game_version))):
+            if any((len(username) not in range(3, 17), len(client_password) not in range(6, 32))):
                 raise Exception('Invalid login data recieved.')
 
             # TODO: future 'anticheat' checks with game_version

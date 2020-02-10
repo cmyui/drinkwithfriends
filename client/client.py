@@ -1,6 +1,7 @@
 import socket
 from sys import exit
 from time import sleep
+#from bcrypt import hashpw, gensalt
 
 from common.constants import dataTypes
 from common.constants import packetID
@@ -25,6 +26,7 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         p.pack_data((
             (input('Username: '), dataTypes.STRING),
             (input('Password: '), dataTypes.STRING),
+            #(hashpw(input('Password: '), gensalt()), dataTypes.STRING), # TODO: maybe use?
             (_version, dataTypes.UINT)
         ))
 
