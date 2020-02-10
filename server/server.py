@@ -66,7 +66,7 @@ def handle_connection(conn: socket) -> None:
     p.read_data(c.body)
 
     if p.id == 1: # Login packet
-        print(p.unpack_data((dataTypes.STRING, dataTypes.FLOAT)))
+        print(p.unpack_data((dataTypes.STRING, dataTypes.UINT)))
         conn.send(b'\x01') # send success
     return
 

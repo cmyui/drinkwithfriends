@@ -4,8 +4,10 @@ from sys import exit
 from common.constants import dataTypes
 from common.constants import packetID
 from common.helpers.packetHelper import Packet
-from objects import glob
+#from objects import glob # not yet needed
 
+global _version
+_version = 100
 
 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
 
@@ -21,7 +23,7 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
     p = Packet(packetID.client_login)
     p.pack_data((
         ('cmyui', dataTypes.STRING), # Username
-        (glob.config['version'], dataTypes.FLOAT) # Game version
+        (_version, dataTypes.UINT) # Game version
     ))
 
     s.send(p.get_data)
