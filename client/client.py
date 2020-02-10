@@ -1,17 +1,18 @@
-from typing import Tuple
 import socket
 from sys import exit
 
-HOST: Tuple[str] = ('51.79.17.191', 6999)
+from common.constants import dataTypes
+from common.constants import packetID
 
-sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-try: sock.connect(HOST)
-except socket.error as err:
-    print(err)
-    exit(1)
+with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
 
-print('success')
-sock.send(b'\x01')
-sock.close()
-exit(0)
+    try: s.connect(('51.79.17.191', 6999))
+    except socket.error as err:
+        print(f'Failed to establish a connection to the server:\n{err}')
+        exit(1)
+
+    print('Connection established.')
+    s.send(Packet(packetID.client_login).get_data)
+    s.close()
+    exit(0)

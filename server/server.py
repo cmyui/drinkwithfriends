@@ -1,14 +1,14 @@
 # -*- coding: utf-8 -*-
-from typing import (
-    Optional
-)
+from typing import List, Dict, Optional
 
 from socket import socket, AF_INET, SOCK_STREAM
 from os import path, chmod, remove
 from json import loads
 import mysql.connector
 
-from db import dbConnector
+from common.constants import dataTypes
+from common.constants import packetID
+from common.db import dbConnector
 from objects import glob
 
 from colorama import init as clr_init, Fore as colour
@@ -18,39 +18,49 @@ with open(f'{path.dirname(path.realpath(__file__))}/config.json', 'r') as f:
     glob.config = loads(f.read())
 
 """ Attempt to connect to MySQL. """
-#glob.db = dbConnector.SQLPool(
-#    pool_size = 4,
-#    config = {
-#        'user': glob.config['mysql_user'],
-#        'password': glob.config['mysql_passwd'],
-#        'host': glob.config['mysql_host'],
-#        'database': glob.config['mysql_database']
-#    }
-#)
+# glob.db = dbConnector.SQLPool(
+#     pool_size = 4,
+#     config = {
+#         'user': glob.config['mysql_user'],
+#         'password': glob.config['mysql_passwd'],
+#         'host': glob.config['mysql_host'],
+#         'database': glob.config['mysql_database']
+#     }
+# )
 
-# just don't error lol 4head
-#except SQLError as err:
-#    if err.errno == mysql.connector.errorcode.ER_ACCESS_DENIED_ERROR:
-#        raise Exception('Something is wrong with your username or password.')
-#    elif err.errno == mysql.connector.errorcode.ER_BAD_DB_ERROR:
-#        raise Exception('Database does not exist.')
-#    else: raise Exception(err)
-#else: print(f'{colour.GREEN}Successfully connected to SQL.')
+class Connection(object):
+    def __init__(self, request_data: bytes) -> None:
+        self.raw_request: List[str] = request_data.decode().split('\r\n\r\n', maxsplit=1) # very unsafe
+        self.headers: Dict[str, str] = {}
+        self.body: List[str] = []
+        self.parse_request()
+
+    def parse_request(self) -> None:
+        self.parse_headers()
+        self.body = self.raw_request[1].split('\n')
+
+    def parse_headers(self) -> None:
+        for line in self.raw_request[0].split('\r\n'):
+            if ':' not in line: continue
+            k, v = line.split(':')
+            self.headers[k] = v.lstrip()
 
 # Create socket (check and remove if prior version exists).
 if path.exists(glob.config['socket_location']):
     remove(glob.config['socket_location'])
 
 sock: socket = socket(AF_INET, SOCK_STREAM)
-#sock: socket = socket(AF_UNIX, SOCK_STREAM)
 sock.bind(('', 6999))
-#sock.bind(glob.config['socket_location'])
-#chmod(glob.config['socket_location'], 0o777)
 sock.listen(glob.config['concurrent_connections'])
 
 def handle_connection(conn: socket) -> None:
-    data: Optional[bytes] = conn.recv(2048)
-    print(data)
+    data: Optional[bytes] = conn.recv(128) # may need to be increased in the future?
+    if len(data) == 128:
+        print('[WARN] Max connection data recived. Most likely missing some data! (ignoring req)')
+        return
+
+    c = Connection(data)
+    print(c.__dict__)
     return
 
 if __name__ == '__main__':
@@ -59,3 +69,6 @@ if __name__ == '__main__':
     while True:
         conn, _ = sock.accept()
         with conn: handle_connection(conn)
+
+# Free SQL connections
+glob.db.pool._remove_connections()
