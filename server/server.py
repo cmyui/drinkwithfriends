@@ -75,7 +75,7 @@ def handle_connection(conn: socket) -> None:
                 dataTypes.UINT # Game version
             ))
 
-            print(f'\n{username}\n{client_password}\n{game_version}\n)
+            print(f'\n{username}\n{client_password}\n{game_version}\n')
 
             if any(len(username) not in range(3, 17), len(client_password) != 32, not int(game_version)):
                 raise Exception('Invalid login data recieved.')
