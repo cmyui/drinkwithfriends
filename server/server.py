@@ -18,15 +18,15 @@ with open(f'{path.dirname(path.realpath(__file__))}/config.json', 'r') as f:
     glob.config = loads(f.read())
 
 """ Attempt to connect to MySQL. """
-glob.db = dbConnector.SQLPool(
-    pool_size = 4,
-    config = {
-        'user': glob.config['mysql_user'],
-        'password': glob.config['mysql_passwd'],
-        'host': glob.config['mysql_host'],
-        'database': glob.config['mysql_database']
-    }
-)
+#glob.db = dbConnector.SQLPool(
+#    pool_size = 4,
+#    config = {
+#        'user': glob.config['mysql_user'],
+#        'password': glob.config['mysql_passwd'],
+#        'host': glob.config['mysql_host'],
+#        'database': glob.config['mysql_database']
+#    }
+#)
 
 # just don't error lol 4head
 #except SQLError as err:
