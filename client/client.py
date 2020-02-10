@@ -5,6 +5,7 @@ from time import sleep
 
 from objects import glob
 
+from common.objects.user import User
 from common.constants import dataTypes
 from common.constants import packetID
 from common.helpers.packetHelper import Packet
@@ -35,9 +36,12 @@ class Client(object):
         # Connection established
         if not self.user: # Login
             p = Packet(packetID.client_login)
+
+            username: str = input('Username: ')
+            password: str = input('Password: ')
             p.pack_data((
-                (input('Username: '), dataTypes.STRING),
-                (input('Password: '), dataTypes.STRING),
+                (username, dataTypes.STRING),
+                (password, dataTypes.STRING),
                 (_version, dataTypes.UINT)
             ))
 
@@ -57,6 +61,7 @@ class Client(object):
                 print('Your account has been banned.')
             elif resp == packetID.server_loginSuccess:
                 print('Authenticated.')
+                self.user = User(sock.recv(2), username, _version)
             else:
                 print(f'Invalid packetID {resp}')
             return

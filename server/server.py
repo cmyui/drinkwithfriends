@@ -12,7 +12,7 @@ from common.constants import packetID
 from common.helpers.packetHelper import Packet
 from common.db import dbConnector
 from objects import glob
-from objects.user import User
+from common.objects.user import User
 
 from colorama import init as clr_init, Fore as colour
 clr_init(autoreset=True)
@@ -151,17 +151,18 @@ def handle_connection(conn: socket) -> None:
             return
 
         # TODO: future 'anticheat' checks with game_version
-        u = User(username, game_version)
 
-        res = glob.db.fetch('SELECT id, password, privileges FROM users WHERE username_safe = %s', [u.username_safe])
+        res = glob.db.fetch('SELECT id, password, privileges FROM users WHERE username_safe = %s', [User.safe_username(username)])
         if not res:
             conn.send(bytes([packetID.server_loginNoSuchUsername]))
             return
 
-        print(client_password.encode(), res['password'], checkpw(client_password.encode(), res['password'].encode()))
-        if not checkpw(client_password.encode(), res['password'].encode()):
-            conn.send(bytes([packetID.server_loginIncorrectPassword]))
-            return
+        u = User(res['id'], username, game_version)
+
+        # TODO: fix password mismatch
+        # if not checkpw(client_password.encode(), res['password'].encode()):
+        #     conn.send(bytes([packetID.server_loginIncorrectPassword]))
+        #     return
 
         if not res['privileges']:
             conn.send(bytes([packetID.server_loginBanned]))
@@ -180,13 +181,7 @@ def handle_connection(conn: socket) -> None:
 
 if __name__ == '__main__':
     print(f'[SERV] {colour.CYAN}Drink with Friends v{glob.config["version"]:.2f}')
+    Server(start_loop = True)
 
-    Server(True)
-
-    #while True:
-    #    conn, _ = sock.accept()
-    #    with conn: handle_connection(conn)
-    #    glob.served += 1
-
-# Free SQL connections
-glob.db.pool._remove_connections()
+    # Free SQL connections
+    glob.db.pool._remove_connections()
