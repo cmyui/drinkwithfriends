@@ -34,7 +34,7 @@ class Packet(object):
         return
 
     def unpack_data(self, types) -> Tuple[Any]: # TODO: return type
-        unpacked: List[Any]
+        unpacked: List[Any] = []
         for type in types:
             if type == dataTypes.STRING: # cant be cheap this time :(
                 if self.data[self.offset] == '\x0b': # String exists
