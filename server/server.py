@@ -96,7 +96,7 @@ class Server(object):
 
             # TODO: future 'anticheat' checks with game_version
 
-            res = glob.db.fetch('SELECT id, password, privileges FROM users WHERE username_safe = %s', [u.username_safe])
+            res = glob.db.fetch('SELECT id, password, privileges FROM users WHERE username_safe = %s', [username.replace(' ', '_').strip()])
 
             u = User(res['id'], username, game_version)
             if not res:
