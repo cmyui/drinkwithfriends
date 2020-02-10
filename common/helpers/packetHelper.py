@@ -47,7 +47,7 @@ class Packet(object):
         return
 
     def read_data(self, data) -> Dict[str, Any]:
-        self.data = bytearray(data)
+        self.data = bytearray(data.encode())
 
         self.id, self.length = _unpack('hi', self.data)
         #return {
