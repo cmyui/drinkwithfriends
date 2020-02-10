@@ -33,7 +33,7 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.send(p.get_data)
         try: resp = ord(s.recv(1))
         except:
-            print(f'FAILED - {resp}')
+            print('Failed to recieve value from server.')
             continue
 
         if resp == packetID.server_loginInvalidData:

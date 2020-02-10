@@ -86,7 +86,7 @@ def handle_connection(conn: socket) -> None:
             conn.send(bytes([packetID.server_loginNoSuchUsername]))
             return
 
-        if not checkpw(client_password.encode(), res['password']):
+        if not checkpw(client_password.encode(), res['password'].encode()):
             conn.send(bytes([packetID.server_loginIncorrectPassword]))
             return
 
