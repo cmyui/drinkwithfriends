@@ -41,7 +41,6 @@ class Packet(object):
                     self.offset += 1
 
                     length: int = self.data[self.offset]
-                    print(f'len: {length}')
                     self.offset += 1
 
                     unpacked.append(self.data[self.offset:self.offset + length].decode())
@@ -54,7 +53,6 @@ class Packet(object):
 
             fmt: str = self.get_fmtstr(type)
             if not fmt: continue
-            print(f'calcsize: {calcsize(fmt)}')
             unpacked.append(*[x for x in _unpack(f'<{fmt}', self.data[self.offset:self.offset + calcsize(fmt)])])
             self.offset += calcsize(fmt)
 

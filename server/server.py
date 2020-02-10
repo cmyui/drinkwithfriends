@@ -55,10 +55,12 @@ class Server(object):
         if path.exists(glob.config['socket_location']):
             remove(glob.config['socket_location'])
 
-        self._sock: socket = socket(AF_INET, SOCK_STREAM) # Our actual socket
-        self.sock: Optional[socket] = None # Current 'instance' socket.
+        # Actual socket
+        self._sock: socket = socket(AF_INET, SOCK_STREAM)
         self._sock.bind(('', glob.config['port']))
         self._sock.listen(glob.config['concurrent_connections'])
+
+        self.sock: Optional[socket] = None # Current 'instance' socket.
 
         if start_loop:
             self._handle_connections()
@@ -101,7 +103,12 @@ class Server(object):
                 self.sock.send(bytes([packetID.server_loginNoSuchUsername]))
                 return
 
-            print(checkpw(client_password.encode(), res['password'].encode()))
+            print(
+                client_password.encode(),
+                res['password'].encode(),
+                checkpw(client_password.encode(), res['password'].encode())
+            )
+
             if not checkpw(client_password.encode(), res['password'].encode()):
                 self.sock.send(bytes([packetID.server_loginIncorrectPassword]))
                 return
