@@ -96,9 +96,9 @@ class Server(object):
 
             # TODO: future 'anticheat' checks with game_version
 
-            u = User(username, game_version)
-
             res = glob.db.fetch('SELECT id, password, privileges FROM users WHERE username_safe = %s', [u.username_safe])
+
+            u = User(res['id'], username, game_version)
             if not res:
                 self.sock.send(bytes([packetID.server_loginNoSuchUsername]))
                 return
@@ -128,56 +128,6 @@ class Server(object):
             pass
 
         return
-
-def handle_connection(conn: socket) -> None:
-    data: Optional[bytes] = conn.recv(128) # may need to be increased in the future?
-    if len(data) == 128:
-        print('[WARN] Max connection data recived. Most likely missing some data! (ignoring req)\n{data}')
-        return
-
-    c = Connection(data)
-    p = Packet()
-    p.read_data(c.body)
-
-    if p.id == packetID.client_login: # Login packet
-        try:
-            username, client_password, game_version = p.unpack_data(( # pylint: disable=unbalanced-tuple-unpacking
-                dataTypes.STRING, # Username
-                dataTypes.STRING, # Password
-                dataTypes.UINT # Game version
-            ))
-        except:
-            conn.send(bytes([packetID.server_loginInvalidData]))
-            return
-
-        # TODO: future 'anticheat' checks with game_version
-
-        res = glob.db.fetch('SELECT id, password, privileges FROM users WHERE username_safe = %s', [User.safe_username(username)])
-        if not res:
-            conn.send(bytes([packetID.server_loginNoSuchUsername]))
-            return
-
-        u = User(res['id'], username, game_version)
-
-        # TODO: fix password mismatch
-        # if not checkpw(client_password.encode(), res['password'].encode()):
-        #     conn.send(bytes([packetID.server_loginIncorrectPassword]))
-        #     return
-
-        if not res['privileges']:
-            conn.send(bytes([packetID.server_loginBanned]))
-            return
-
-        """ Login success, nothing wrong™️ """
-
-        glob.users.append(u)
-        conn.send(bytes([packetID.server_loginSuccess])) # send success
-        return
-
-    elif p.id == packetID.client_shot: # Taking a shot
-        pass
-
-    return
 
 if __name__ == '__main__':
     print(f'[SERV] {colour.CYAN}Drink with Friends v{glob.config["version"]:.2f}')
