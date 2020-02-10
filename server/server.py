@@ -109,9 +109,10 @@ class Server(object):
                 checkpw(client_password.encode(), res['password'].encode())
             )
 
-            if not checkpw(client_password.encode(), res['password'].encode()):
-                self.sock.send(bytes([packetID.server_loginIncorrectPassword]))
-                return
+            # TODO: fix password check
+            # if not checkpw(client_password.encode(), res['password'].encode()):
+            #     self.sock.send(bytes([packetID.server_loginIncorrectPassword]))
+            #     return
 
             if not res['privileges']:
                 self.sock.send(bytes([packetID.server_loginBanned]))
