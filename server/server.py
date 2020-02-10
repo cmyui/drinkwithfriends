@@ -55,9 +55,10 @@ class Server(object):
         if path.exists(glob.config['socket_location']):
             remove(glob.config['socket_location'])
 
-        self.sock: socket = socket(AF_INET, SOCK_STREAM)
-        self.sock.bind(('', glob.config['port']))
-        self.sock.listen(glob.config['concurrent_connections'])
+        self._sock: socket = socket(AF_INET, SOCK_STREAM) # Our actual socket
+        self.sock: Optional[socket] = None # Current 'instance' socket.
+        self._sock.bind(('', glob.config['port']))
+        self._sock.listen(glob.config['concurrent_connections'])
 
         if start_loop:
             self._handle_connections()
@@ -66,7 +67,7 @@ class Server(object):
 
     def _handle_connections(self) -> None:
         while True:
-            self.sock, _ = self.sock.accept()
+            self.sock, _ = self._sock.accept()
             with self.sock: self.handle_connection()
             self.served += 1
 
