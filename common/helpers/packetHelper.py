@@ -22,7 +22,6 @@ class Packet(object):
     def pack_data(self, _data: Tuple[Any]) -> None:
         # Pack data passed in the format:
         # ((data, data_type), ...)
-        print(_data)
         for data, type in _data:
             if type == dataTypes.STRING: # Cheap ass ULEB128
                 self.data += b'\x0b' + len(data).to_bytes(1, 'little') + data.encode()
@@ -41,9 +40,11 @@ class Packet(object):
                 l: List[int] = []
 
                 length: int = int.from_bytes(self.data[self.offset:self.offset + 2], 'little')
+                print(f'length: {length}')
                 self.offset += 2
 
                 for _ in range(length):
+                    print(int.from_bytes(self.data[self.offset:self.offset + 2], 'little'))
                     l.append(int.from_bytes(self.data[self.offset:self.offset + 2], 'little'))
                     self.offset += 2
 
