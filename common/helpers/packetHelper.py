@@ -80,7 +80,7 @@ class Packet(object):
 
     @staticmethod
     def get_fmtstr(type: int) -> Optional[str]:
-        if type == dataTypes.STRING: return None
+        if type in [dataTypes.INT_LIST, dataTypes.STRING]: return None
         elif type == dataTypes.PAD_BYTE: return 'x'
         elif type == dataTypes.SHORT: return 'h'
         elif type == dataTypes.USHORT: return 'H'
