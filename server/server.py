@@ -3,7 +3,7 @@ from typing import (
     Optional
 )
 
-from socket import socket, AF_UNIX, SOCK_STREAM
+from socket import socket, AF_INET, SOCK_STREAM
 from os import path, chmod, remove
 from json import loads
 import mysql.connector
@@ -41,9 +41,11 @@ glob.db = dbConnector.SQLPool(
 if path.exists(glob.config['socket_location']):
     remove(glob.config['socket_location'])
 
-sock: socket = socket(AF_UNIX, SOCK_STREAM)
-sock.bind(glob.config['socket_location'])
-chmod(glob.config['socket_location'], 0o777)
+sock: socket = socket(AF_INET, SOCK_STREAM)
+#sock: socket = socket(AF_UNIX, SOCK_STREAM)
+sock.bind(('', 6999))
+#sock.bind(glob.config['socket_location'])
+#chmod(glob.config['socket_location'], 0o777)
 sock.listen(glob.config['concurrent_connections'])
 
 def handle_connection(conn: socket) -> None:

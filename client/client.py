@@ -1,9 +1,10 @@
+from typing import Tuple
 import socket
 from sys import exit
 
-HOST: str = r'https://cmyui.codes/dwf/'
+HOST: Tuple[str] = ('51.79.17.191', 6999)
 
-sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
 try: sock.connect(HOST)
 except socket.error as err:
