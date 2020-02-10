@@ -8,6 +8,7 @@ import mysql.connector
 
 from common.constants import dataTypes
 from common.constants import packetID
+from common.helpers.packetHelper import Packet
 from common.db import dbConnector
 from objects import glob
 
@@ -60,7 +61,8 @@ def handle_connection(conn: socket) -> None:
         return
 
     c = Connection(data)
-    print(c.__dict__)
+    p = Packet()
+    print(p.read_data(c.body))
     return
 
 if __name__ == '__main__':

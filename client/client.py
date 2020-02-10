@@ -3,6 +3,7 @@ from sys import exit
 
 from common.constants import dataTypes
 from common.constants import packetID
+from common.helpers.packetHelper import Packet
 
 
 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -13,6 +14,12 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         exit(1)
 
     print('Connection established.')
-    s.send(Packet(packetID.client_login).get_data)
+
+    print('Attempting to login to the server..')
+    p = Packet(packetID.client_login)
+    p.pack_data(((
+        'abc', dataTypes.STRING
+    ),))
+    s.send(p.get_data)
     s.close()
     exit(0)

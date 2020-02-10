@@ -1,4 +1,4 @@
-from typing import Any, Tuple, Optional
+from typing import Any, Dict, Tuple, Optional
 from common.constants import dataTypes, packetID
 from struct import pack as _pack, unpack as _unpack
 
@@ -6,6 +6,7 @@ class Packet(object):
     def __init__(self, id: int = None):
         self.id: Optional[int] = id
         self.data: bytearray = bytearray()
+        self.length = 0
 
     @property # Convert to bytestring and return.
     def get_data(self) -> bytes:
@@ -44,3 +45,15 @@ class Packet(object):
 
             self.data += _pack(fmt, data)
         return
+
+    def read_data(self, data) -> Dict[str, Any]:
+        self.data = data
+
+        from timeit import timeit
+        timeit('self.id, self.length = _unpack("hi", self.data)', number=10000)
+        timeit('self.id, self.length = _unpack("hi", self.data[0:5])', number=10000)
+        self.id, self.length = _unpack('hi', self.data)
+        #return {
+        #    'id': self.id,
+        #    'length': len
+        #}
