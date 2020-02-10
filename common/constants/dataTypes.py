@@ -18,3 +18,6 @@ DOUBLE = 11
 
 # String
 STRING = 12 # ULEB128
+
+# List of integers
+INT_LIST = 13

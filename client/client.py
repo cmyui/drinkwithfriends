@@ -1,3 +1,4 @@
+from typing import List, Optional
 from socket import socket, AF_INET, SOCK_STREAM, error as sock_err
 from sys import exit
 from time import sleep
@@ -8,7 +9,7 @@ from objects import glob
 from common.objects.user import User
 from common.constants import dataTypes
 from common.constants import packetID
-from common.helpers.packetHelper import Packet
+from common.helpers.packetHelper import Packet, Connection
 #from objects import glob # not yet needed
 
 global _version
@@ -48,6 +49,8 @@ class Client(object):
             ))
 
             sock.send(p.get_data)
+            del p
+
             try: resp = ord(sock.recv(1))
             except:
                 print('Failed to recieve value from server.')
@@ -63,11 +66,26 @@ class Client(object):
                 print('Your account has been banned.')
             elif resp == packetID.server_loginSuccess:
                 print('Authenticated.')
-                print(sock.recv(2), sock.recv(2))
+
+                try: conn = Connection(sock.recv(glob.max_bytes))
+                except:
+                    print('Failed to connect #1')
+                    return
+
+                p = Packet()
+                p.read_data(conn.body)
+                print(p.__dict__)
+                try: id, online = p.unpack_data(( # pylint: disable=unbalanced-tuple-unpacking
+                        dataTypes.USHORT,
+                        dataTypes.INT_LIST
+                    ))
+                except:
+                    print('failed #2')
+                    return
+
+                print(online)
                 exit(1)
-                self.user = User(sock.recv(2), username, _version)
-                for _ in range(sock.recv(2)):
-                    self.online_users.append(sock.recv(2))
+                self.user = User(id, username, _version)
 
                 print(f'self.online_users: {self.online_users}')
             else: print(f'Invalid packetID {resp}')

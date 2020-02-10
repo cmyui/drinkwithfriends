@@ -9,7 +9,7 @@ import mysql.connector
 
 from common.constants import dataTypes
 from common.constants import packetID
-from common.helpers.packetHelper import Packet
+from common.helpers.packetHelper import Packet, Connection
 from common.db import dbConnector
 from objects import glob
 from common.objects.user import User
@@ -30,22 +30,6 @@ glob.db = dbConnector.SQLPool(
         'database': glob.config['mysql_database']
     }
 )
-
-class Connection(object):
-    def __init__(self, data: bytes) -> None:
-        self.raw: List[str] = data.decode().split('\r\n\r\n', maxsplit = 1)
-        self.headers: Dict[str, str] = {}
-        self.parse_headers(self.raw[0].split('\r\n'))
-        self.body: str = self.raw[1]
-
-        return
-
-    def parse_headers(self, _headers: bytes) -> None:
-        for line in self.raw[0].split('\r\n'):
-            if ':' not in line: continue
-            k, v = line.split(':')
-            self.headers[k] = v.lstrip()
-        return
 
 class Server(object):
     def __init__(self, start_loop: bool = False):
@@ -126,7 +110,8 @@ class Server(object):
             p.pack_data((
                 (u.id, dataTypes.USHORT),
                 (len(glob.users), dataTypes.USHORT), # Length of the list of online users
-                *((u.id, dataTypes.USHORT) for u in glob.users) # List of online users
+                (*(u.id for u in glob.users), dataTypes.INT_LIST)
+                #*((u.id, dataTypes.USHORT) for u in glob.users) # List of online users
             ))
             self.sock.send(p.get_data)
             return

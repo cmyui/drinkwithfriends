@@ -37,7 +37,19 @@ class Packet(object):
     def unpack_data(self, types) -> Tuple[Any]: # TODO: return type
         unpacked: List[Any] = []
         for type in types:
-            if type == dataTypes.STRING: # cant be cheap this time :(
+            if type == dataTypes.INT_LIST:
+                l: List[int] = []
+
+                length: int = int.from_bytes(self.data[self.offset:self.offset + 2], 'little')
+                self.offset += 2
+
+                for _ in range(length):
+                    l.append(int.from_bytes(self.data[self.offset:self.offset + 2], 'little'))
+                    self.offset += 2
+
+                unpacked.extend(tuple(l))
+                continue
+            elif type == dataTypes.STRING: # cant be cheap this time :(
                 if self.data[self.offset] == 11: # String exists
                     self.offset += 1
 
@@ -81,3 +93,19 @@ class Packet(object):
         elif type == dataTypes.DOUBLE: return 'd'
         print(f'[WARN] Unknown dataType {type}.')
         return None
+
+class Connection(object):
+    def __init__(self, data: bytes) -> None:
+        self.raw: List[str] = data.decode().split('\r\n\r\n', maxsplit = 1)
+        self.headers: Dict[str, str] = {}
+        self.parse_headers(self.raw[0].split('\r\n'))
+        self.body: str = self.raw[1]
+
+        return
+
+    def parse_headers(self, _headers: bytes) -> None:
+        for line in self.raw[0].split('\r\n'):
+            if ':' not in line: continue
+            k, v = line.split(':')
+            self.headers[k] = v.lstrip()
+        return
