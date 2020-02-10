@@ -57,13 +57,15 @@ sock.listen(glob.config['concurrent_connections'])
 def handle_connection(conn: socket) -> None:
     data: Optional[bytes] = conn.recv(128) # may need to be increased in the future?
     if len(data) == 128:
-        print('[WARN] Max connection data recived. Most likely missing some data! (ignoring req)')
+        print('[WARN] Max connection data recived. Most likely missing some data! (ignoring req)\n{data}')
         return
 
     c = Connection(data)
     p = Packet()
     p.read_data(c.body)
-    print(p.id)
+
+    if p.id == 1: # Login packet
+        print(p.unpack_data((dataTypes.STRING),))
     return
 
 if __name__ == '__main__':

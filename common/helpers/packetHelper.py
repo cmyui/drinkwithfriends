@@ -1,12 +1,15 @@
-from typing import Any, Dict, Tuple, Optional
+from typing import Any, Dict, List, Tuple, Optional
 from common.constants import dataTypes, packetID
-from struct import pack as _pack, unpack as _unpack
+from struct import pack as _pack, unpack as _unpack, calcsize
 
 class Packet(object):
     def __init__(self, id: int = None):
         self.id: Optional[int] = id
         self.data: bytearray = bytearray()
         self.length = 0
+
+        self.offset = 0 # only used for unpacking
+        return
 
     @property # Convert to bytestring and return.
     def get_data(self) -> bytes:
@@ -24,32 +27,57 @@ class Packet(object):
                 self.data += b'\x0b' + len(data).to_bytes(1, 'little') + data.encode()
                 continue
 
-            fmt: str = ''
-
-            # hahaha what's a switchcase
-            if type == dataTypes.PAD_BYTE:    fmt = 'x'
-            elif type == dataTypes.SHORT:     fmt = 'h'
-            elif type == dataTypes.USHORT:    fmt = 'H'
-            elif type == dataTypes.INT:       fmt = 'i'
-            elif type == dataTypes.UINT:      fmt = 'I'
-            elif type == dataTypes.LONG:      fmt = 'l'
-            elif type == dataTypes.ULONG:     fmt = 'L'
-            elif type == dataTypes.LONGLONG:  fmt = 'q'
-            elif type == dataTypes.ULONGLONG: fmt = 'Q'
-            elif type == dataTypes.FLOAT:     fmt = 'f'
-            elif type == dataTypes.DOUBLE:    fmt = 'd'
-
-            if not fmt:
-                print(f'[WARN] Unknown dataType {type}.')
-                continue
+            fmt: str = self.get_fmtstr(type)
+            if not fmt: continue
 
             self.data += _pack(fmt, data)
         return
 
-    def read_data(self, data) -> Dict[str, Any]:
+    def unpack_data(self, types) -> Tuple[Any]: # TODO: return type
+        unpacked: List[Any]
+        for type in types:
+            if type == dataTypes.STRING: # cant be cheap this time :(
+                if self.data[self.offset] == '\x0b': # String exists
+                    self.offset += 1
+
+                    length: int = int.from_bytes(self.data[self.offset], byteorder='little')
+                    print(f'len: {length}')
+                    self.offset += 1
+
+                    unpacked.append(self.data[self.offset:self.offset + length].decode())
+                    self.offset += length
+
+                else:
+                    print(f'invalid - {self.data} - {self.data[self.offset]}')
+                    pass
+                continue
+
+            fmt: str = self.get_fmtstr(type)
+            if not fmt: continue
+            print(f'calcsize: {calcsize(fmt)}')
+            unpacked.append(_unpack(f'<{fmt}', self.data[self.offset:calcsize(fmt)]))
+            self.offset += calcsize(fmt)
+
+        return tuple(unpacked)
+
+    def read_data(self, data) -> None:
         self.data = bytearray(data.encode())
         self.id, self.length = _unpack('<hi', self.data)
-        #return {
-        #    'id': self.id,
-        #    'length': len
-        #}
+        return
+
+    @staticmethod
+    def get_fmtstr(type: int) -> Optional[str]:
+        if type == dataTypes.STRING: return None
+        elif type == dataTypes.PAD_BYTE: return 'x'
+        elif type == dataTypes.SHORT: return 'h'
+        elif type == dataTypes.USHORT: return 'H'
+        elif type == dataTypes.INT: return 'i'
+        elif type == dataTypes.UINT: return 'I'
+        elif type == dataTypes.LONG: return 'l'
+        elif type == dataTypes.ULONG: return 'L'
+        elif type == dataTypes.LONGLONG: return 'q'
+        elif type == dataTypes.ULONGLONG: return 'Q'
+        elif type == dataTypes.FLOAT: return 'f'
+        elif type == dataTypes.DOUBLE: return 'd'
+        print(f'[WARN] Unknown dataType {type}.')
+        return None

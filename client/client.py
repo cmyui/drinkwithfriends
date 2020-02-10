@@ -15,11 +15,13 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
 
     print('Connection established.')
 
+    # Login
     print('Attempting to login to the server..')
-    p = Packet(packetID.client_login)
-    p.pack_data(((
-        'abc', dataTypes.STRING
-    ),))
-    s.send(p.get_data)
+    s.send(Packet(packetID.client_login).get_data)
+
+    s.recv()
+
+
+
     s.close()
     exit(0)
