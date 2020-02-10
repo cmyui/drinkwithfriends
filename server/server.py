@@ -79,7 +79,11 @@ class Server(object):
             print('[WARN] Max connection data recived. Most likely missing some data! (ignoring req)\n{data}')
             return
 
-        conn = Connection(data)
+        try: conn = Connection(data)
+        except:
+            print('Ignored unknown packet')
+            return
+
         p = Packet()
         p.read_data(conn.body)
 
