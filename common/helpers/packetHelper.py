@@ -55,7 +55,7 @@ class Packet(object):
             fmt: str = self.get_fmtstr(type)
             if not fmt: continue
             print(f'calcsize: {calcsize(fmt)}')
-            unpacked.append(_unpack(f'<{fmt}', self.data[self.offset:self.offset + calcsize(fmt)]))
+            unpacked.append((x for x in _unpack(f'<{fmt}', self.data[self.offset:self.offset + calcsize(fmt)])))
             self.offset += calcsize(fmt)
 
         return tuple(unpacked)
