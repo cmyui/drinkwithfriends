@@ -37,7 +37,7 @@ class Packet(object):
         unpacked: List[Any] = []
         for type in types:
             if type == dataTypes.STRING: # cant be cheap this time :(
-                if self.data[self.offset] == '\x0b': # String exists
+                if self.data[self.offset] == 11: # String exists
                     self.offset += 1
 
                     length: int = int.from_bytes(self.data[self.offset], byteorder='little')
