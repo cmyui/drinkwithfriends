@@ -31,6 +31,7 @@ with open(f'{path.dirname(path.realpath(__file__))}/config.json', 'r') as f:
 
 class Connection(object):
     def __init__(self, request_data: bytes) -> None:
+        print(f'RAW\n{request_data}\n')
         self.raw_request: List[str] = request_data.decode().split('\r\n\r\n', maxsplit=1) # very unsafe
         self.headers: Dict[str, str] = {}
         self.body: List[str] = []
