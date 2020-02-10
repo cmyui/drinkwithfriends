@@ -49,9 +49,6 @@ class Packet(object):
     def read_data(self, data) -> Dict[str, Any]:
         self.data = data
 
-        from timeit import timeit
-        timeit('self.id, self.length = _unpack("hi", self.data)', number=10000)
-        timeit('self.id, self.length = _unpack("hi", self.data[0:5])', number=10000)
         self.id, self.length = _unpack('hi', self.data)
         #return {
         #    'id': self.id,
