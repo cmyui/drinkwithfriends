@@ -22,7 +22,7 @@ class Packet(object):
     def pack_data(self, _data: Tuple[Any]) -> None:
         # Pack data passed in the format:
         # ((data, data_type), ...)
-        print(f'L25: {data}')
+        print(f'L25: {_data}')
         for data, type in _data:
             if type == dataTypes.INT_LIST:
                 self.data += len(data).to_bytes(1, 'little')
