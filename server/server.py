@@ -110,21 +110,14 @@ class Server(object):
             self.sock.send(bytes([packetID.server_loginSuccess])) # send success
             p = Packet(packetID.server_userInfo)
 
-            print(
-                'TESTING\n',
-                (*(u.id for u in glob.users)),
-                ([u.id for u in glob.users]),
-                ([u.id for u in glob.users],),
-                ((u.id for u in glob.users),),
-                '\n\n'
-            )
-
             p.pack_data((
                 (u.id, dataTypes.USHORT),
                 (len(glob.users), dataTypes.USHORT), # Length of the list of online users
-                ((*(u.id for u in glob.users)), dataTypes.INT_LIST)
+                (([u.id for u in glob.users]), dataTypes.INT_LIST)
                 #*((u.id, dataTypes.USHORT) for u in glob.users) # List of online users
             ))
+
+            print(f'GETED\n{p.get_data}\n')
             self.sock.send(p.get_data)
             return
 
