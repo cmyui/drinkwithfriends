@@ -110,7 +110,7 @@ class Server(object):
             p.pack_data((
                 (u.id, dataTypes.USHORT),
                 (len(glob.users), dataTypes.USHORT), # Length of the list of online users
-                (*(u.id for u in glob.users), dataTypes.INT_LIST)
+                ([u.id for u in glob.users], dataTypes.INT_LIST)
                 #*((u.id, dataTypes.USHORT) for u in glob.users) # List of online users
             ))
             self.sock.send(p.get_data)
