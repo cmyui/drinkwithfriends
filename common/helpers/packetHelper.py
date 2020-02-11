@@ -24,6 +24,7 @@ class Packet(object):
         # ((data, data_type), ...)
         for data, type in _data:
             if type == dataTypes.INT_LIST:
+                self.data += len(data).to_bytes(1, 'little')
                 for i in data:
                     self.data += _pack(self.get_fmtstr(dataTypes.SHORT), i)
                 continue
@@ -43,9 +44,11 @@ class Packet(object):
             if type == dataTypes.INT_LIST:
                 l: List[int] = []
 
-                length: int = int.from_bytes(self.data[self.offset:self.offset + 2], 'little')
-                print(f'length: {length}')
-                self.offset += 2
+                length: int = self.data[self.offset]
+                self.offset += 1
+                #length: int = int.from_bytes(self.data[self.offset:self.offset + 2], 'little')
+                #print(f'length: {length}')
+                #self.offset += 2
 
                 for _ in range(length):
                     print(int.from_bytes(self.data[self.offset:self.offset + 2], 'little'))
