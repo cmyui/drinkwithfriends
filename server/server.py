@@ -99,10 +99,12 @@ class Server(object):
             del res
 
             if not u.privileges:
+                print(f'Banned user {username} attempted to login.')
                 self.sock.send(bytes([packetID.server_loginBanned]))
                 return
 
             """ Login success, nothing wrong™️ """
+            print(f'{username} has logged in.')
 
             glob.users.append(u)
             self.sock.send(bytes([packetID.server_loginSuccess])) # send success
