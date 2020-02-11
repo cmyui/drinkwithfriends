@@ -111,11 +111,16 @@ class Server(object):
             p = Packet(packetID.server_userInfo)
 
             p.pack_data((
-                (u.id, dataTypes.USHORT),
-                (len(glob.users), dataTypes.USHORT), # Length of the list of online users
-                (([u.id for u in glob.users]), dataTypes.INT_LIST)
-                #*((u.id, dataTypes.USHORT) for u in glob.users) # List of online users
+                (1001, dataTypes.USHORT),
+                (5, dataTypes.USHORT),
+                ([1001, 1005, 1003, 1006, 13213])
             ))
+            #p.pack_data((
+            #    (u.id, dataTypes.USHORT),
+            #    (len(glob.users), dataTypes.USHORT), # Length of the list of online users
+            #    (([u.id for u in glob.users]), dataTypes.INT_LIST)
+            #    #*((u.id, dataTypes.USHORT) for u in glob.users) # List of online users
+            #))
 
             print(f'GETED\n{p.get_data}\n')
             self.sock.send(p.get_data)

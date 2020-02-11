@@ -72,7 +72,7 @@ class Packet(object):
                     continue
                 unpacked.append(*[x for x in _unpack(f'<{fmt}', self.data[self.offset:self.offset + calcsize(fmt)])])
                 self.offset += calcsize(fmt)
-
+            print(f'{type}: {self.data}')
         return tuple(unpacked)
 
     def read_data(self, data) -> None:
