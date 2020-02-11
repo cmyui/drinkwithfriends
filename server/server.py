@@ -113,7 +113,7 @@ class Server(object):
             p.pack_data((
                 (1001, dataTypes.USHORT),
                 (5, dataTypes.USHORT),
-                (([1001, 1005, 1003, 1006, 13213], dataTypes.INT_LIST)
+                ([1001, 1005, 1003, 1006, 13213], dataTypes.INT_LIST)
             ))
             #p.pack_data((
             #    (u.id, dataTypes.USHORT),
