@@ -24,8 +24,8 @@ class Packet(object):
         # ((data, data_type), ...)
         for data, type in _data:
             if type == dataTypes.INT_LIST:
-                print(data, type)
-                exit(1)
+                for i in data:
+                    self.data += _pack(self.get_fmtstr(dataTypes.SHORT), i)
                 continue
             elif type == dataTypes.STRING: # Cheap ass ULEB128
                 self.data += b'\x0b' + len(data).to_bytes(1, 'little') + data.encode()
