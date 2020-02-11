@@ -25,7 +25,6 @@ class Packet(object):
         for data, type in _data:
             if type == dataTypes.INT_LIST:
                 for i in data:
-                    print(_pack(self.get_fmtstr(dataTypes.SHORT), i).decode())
                     self.data += _pack(self.get_fmtstr(dataTypes.SHORT), i)
                 continue
             elif type == dataTypes.STRING: # Cheap ass ULEB128
