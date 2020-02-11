@@ -46,17 +46,12 @@ class Packet(object):
 
                 length: int = self.data[self.offset]
                 self.offset += 1
-                #length: int = int.from_bytes(self.data[self.offset:self.offset + 2], 'little')
-                #print(f'length: {length}')
-                #self.offset += 2
 
                 for _ in range(length):
-                    print(int.from_bytes(self.data[self.offset:self.offset + 2], 'little'))
                     l.append(int.from_bytes(self.data[self.offset:self.offset + 2], 'little'))
                     self.offset += 2
 
-                unpacked.extend(tuple(l))
-                continue
+                unpacked.extend(l)
             elif type == dataTypes.STRING: # cant be cheap this time :(
                 if self.data[self.offset] == 11: # String exists
                     self.offset += 1
@@ -70,12 +65,13 @@ class Packet(object):
                 else:
                     print(f'invalid str - {self.data} - {self.data[self.offset]}')
                     self.offset += 1
-                continue
-
-            fmt: str = self.get_fmtstr(type)
-            if not fmt: continue
-            unpacked.append(*[x for x in _unpack(f'<{fmt}', self.data[self.offset:self.offset + calcsize(fmt)])])
-            self.offset += calcsize(fmt)
+            else:
+                fmt: str = self.get_fmtstr(type)
+                if not fmt:
+                    print('HERE')
+                    continue
+                unpacked.append(*[x for x in _unpack(f'<{fmt}', self.data[self.offset:self.offset + calcsize(fmt)])])
+                self.offset += calcsize(fmt)
 
         return tuple(unpacked)
 
@@ -108,7 +104,6 @@ class Connection(object):
         self.headers: Dict[str, str] = {}
         self.parse_headers(self.raw[0].split('\r\n'))
         self.body: str = self.raw[1]
-
         return
 
     def parse_headers(self, _headers: bytes) -> None:
