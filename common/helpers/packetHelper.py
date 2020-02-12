@@ -30,7 +30,8 @@ class Packet(object):
             if type == dataTypes.INT_LIST:
                 self.data += len(data).to_bytes(1, 'little')
                 for i in data:
-                    self.data += _pack(self.get_fmtstr(dataTypes.INT32), i)
+                    print(f'yeyaeyayea: {i}')
+                    self.data += _pack(self.get_fmtstr(dataTypes.INT16), i)
                 continue
             elif type == dataTypes.STRING: # Cheap ass ULEB128
                 self.data += b'\x0b' + len(data).to_bytes(1, 'little') + data.encode()
