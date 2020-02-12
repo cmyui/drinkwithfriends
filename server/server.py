@@ -82,7 +82,8 @@ class Server(object):
                     dataTypes.STRING, # Password
                     dataTypes.UINT32 # Game version
                 ])
-            except:
+            except Exception as err:
+                print(err)
                 self.sendPacketID(packets.server_loginInvalidData)
                 #self.sock.send(bytes([packets.server_loginInvalidData]))
                 return

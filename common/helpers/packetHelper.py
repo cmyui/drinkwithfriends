@@ -4,8 +4,6 @@ from struct import pack as _pack, unpack as _unpack, calcsize
 
 # testing
 from inspect import currentframe, getframeinfo
-global _frameinfo
-_frameinfo = getframeinfo(currentframe())
 
 class Packet(object):
     def __init__(self, id: int = None):
@@ -27,7 +25,7 @@ class Packet(object):
     def pack_data(self, _data: List[Tuple[Union[List[int], int, str, float]]]) -> None:
         # Pack data passed in the format:
         # ((data, data_type), ...)
-        print(f'{_frameinfo.lineno}: {_data}')
+        print(f'{getframeinfo(currentframe()).lineno}: {_data}')
         for data, type in _data:
             if type == dataTypes.INT_LIST:
                 self.data += len(data).to_bytes(1, 'little')
@@ -62,7 +60,7 @@ class Packet(object):
                 if self.data[self.offset] == 11: # String exists
                     self.offset += 1
 
-                    print(f'unpack_data L{_frameinfo.lineno}: {self.data[self.offset]}')
+                    print(f'unpack_data L{getframeinfo(currentframe()).lineno}: {self.data[self.offset]}')
                     length: int = self.data[self.offset]
                     self.offset += 1
 
