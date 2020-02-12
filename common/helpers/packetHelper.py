@@ -75,6 +75,7 @@ class Packet(object):
                 if not fmt:
                     print('HERE')
                     continue
+                print(f'fmt: {fmt}')
                 unpacked.extend([x for x in _unpack(f'<{fmt}', self.data[self.offset:self.offset + calcsize(fmt)])])
                 self.offset += calcsize(fmt)
             print(f'{type}: {self.data}')
