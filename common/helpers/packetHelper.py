@@ -54,9 +54,13 @@ class Packet(object):
 
                 #l.extend([int.from_bytes(self.data[self.offset:self.offset + 2], 'little') for _ in range(length)])
 
+
+                print(f'\nBEFORE\n{self.data}\n')
                 for _ in range(length):
+                    print(int.from_bytes(self.data[self.offset:self.offset + 2]))
                     l.append(int.from_bytes(self.data[self.offset:self.offset + 2], 'little'))
                     self.offset += 2
+                print(f'\nAFTER\n{self.data}\n')
 
                 print(f'l: {l}')
                 unpacked.append(l)
@@ -65,11 +69,9 @@ class Packet(object):
                 if self.data[self.offset] == 11: # String exists
                     self.offset += 1
 
-                    print(f'unpack_data L{getframeinfo(currentframe()).lineno}: {self.data[self.offset]}')
                     length: int = self.data[self.offset]
                     self.offset += 1
 
-                    print(f'\nBEFORE\n{unpacked}\n')
                     unpacked.append(self.data[self.offset:self.offset + length].decode())
                     self.offset += length
 
