@@ -1,16 +1,16 @@
 # Byte
-PAD_BYTE = 0
+#PAD_BYTE = 0
 BYTE = 1
 
 # Integer
-SHORT = 2
-USHORT = 3
-INT = 4
-UINT = 5
-LONG = 6
-ULONG = 7
-LONGLONG = 8
-ULONGLONG = 9
+INT16 = 2
+UINT16 = 3
+#INT = 4
+#UINT = 5
+INT32 = 6
+UINT32 = 7
+INT64 = 8
+UINT64 = 9
 
 # Floating point
 FLOAT = 10

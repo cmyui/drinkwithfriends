@@ -8,7 +8,7 @@ from bcrypt import checkpw, hashpw, gensalt
 import mysql.connector
 
 from common.constants import dataTypes
-from common.constants import packetID
+from common.constants import packets
 from common.helpers.packetHelper import Packet, Connection
 from common.db import dbConnector
 from objects import glob
@@ -49,7 +49,11 @@ class Server(object):
         if start_loop:
             self._handle_connections()
 
-        pass
+        return
+
+    def sendPacketID(self, packet_id) -> None:
+        self.sock.send(bytes([packet_id]))
+        return
 
     def _handle_connections(self) -> None:
         while True:
@@ -71,15 +75,16 @@ class Server(object):
         p = Packet()
         p.read_data(conn.body)
 
-        if p.id == packetID.client_login: # Login packet
+        if p.id == packets.client_login: # Login packet
             try:
-                username, client_password, game_version = p.unpack_data(( # pylint: disable=unbalanced-tuple-unpacking
+                username, client_password, game_version = p.unpack_data([ # pylint: disable=unbalanced-tuple-unpacking
                     dataTypes.STRING, # Username
                     dataTypes.STRING, # Password
-                    dataTypes.UINT # Game version
-                ))
+                    dataTypes.UINT32 # Game version
+                ])
             except:
-                self.sock.send(bytes([packetID.server_loginInvalidData]))
+                self.sendPacketID(packets.server_loginInvalidData)
+                #self.sock.send(bytes([packets.server_loginInvalidData]))
                 return
 
             # TODO: future 'anticheat' checks with game_version
@@ -87,48 +92,52 @@ class Server(object):
             res = glob.db.fetch('SELECT id, password, privileges FROM users WHERE username_safe = %s', [username.replace(' ', '_').strip()])
 
             if not res:
-                self.sock.send(bytes([packetID.server_loginNoSuchUsername]))
+                self.sendPacketID(packets.server_loginNoSuchUsername)
+                #self.sock.send(bytes([packets.server_loginNoSuchUsername]))
                 return
 
             u = User(res['id'], username, res['privileges'], game_version)
             # TODO: fix password check
             # if not checkpw(client_password.encode(), res['password'].encode()):
-            #     self.sock.send(bytes([packetID.server_loginIncorrectPassword]))
+            #     self.sendPacketID(packets.server_loginIncorrectPassword)
+            #     self.sock.send(bytes([packets.server_loginIncorrectPassword]))
             #     return
 
             del res
 
             if not u.privileges:
                 print(f'Banned user {username} attempted to login.')
-                self.sock.send(bytes([packetID.server_loginBanned]))
+                self.sendPacketID(packets.server_loginBanned)
+                #self.sock.send(bytes([packets.server_loginBanned]))
                 return
 
             """ Login success, nothing wrong™️ """
             print(f'{username} has logged in.')
 
             glob.users.append(u)
-            self.sock.send(bytes([packetID.server_loginSuccess])) # send success
-            p = Packet(packetID.server_userInfo)
+            self.sendPacketID(packets.server_loginSuccess)
+            #self.sock.send(bytes([packets.server_loginSuccess])) # send success
+            p = Packet(packets.server_userInfo)
 
-            p.pack_data((
-                (1001, dataTypes.USHORT),
-                (5, dataTypes.USHORT),
-                ([1001, 1005, 1003, 1006, 13213], dataTypes.INT_LIST)
-            ))
+            p.pack_data([
+                (u.id, dataTypes.UINT16), # the user's userid, from db
+                (len(glob.users), dataTypes.UINT16), # the length of
+                ([u.id for u in glob.users], dataTypes.INT_LIST)
+            ])
             #p.pack_data((
-            #    (u.id, dataTypes.USHORT),
-            #    (len(glob.users), dataTypes.USHORT), # Length of the list of online users
+            #    (u.id, dataTypes.UINT16),
+            #    (len(glob.users), dataTypes.UINT16), # Length of the list of online users
             #    (([u.id for u in glob.users]), dataTypes.INT_LIST)
-            #    #*((u.id, dataTypes.USHORT) for u in glob.users) # List of online users
+            #    #*((u.id, dataTypes.UINT16) for u in glob.users) # List of online users
             #))
 
             print(f'GETED\n{p.get_data}\n')
             self.sock.send(p.get_data)
             return
 
-        elif p.id == packetID.client_addBottle: # Adding a bottle to a user's inventory.
+        elif p.id == packets.client_addBottle: # Adding a bottle to a user's inventory.
             pass
-        elif p.id == packetID.client_takeShot: # Taking a shot.
+        elif p.id == packets.client_takeShot: # Taking a shot.
             pass
 
         return

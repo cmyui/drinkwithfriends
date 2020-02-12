@@ -1,6 +1,11 @@
-from typing import Any, Dict, List, Tuple, Optional
-from common.constants import dataTypes, packetID
+from typing import Any, Dict, List, Tuple, Optional, Union
+from common.constants import dataTypes, packets
 from struct import pack as _pack, unpack as _unpack, calcsize
+
+# testing
+from inspect import currentframe, getframeinfo
+global _frameinfo
+_frameinfo = getframeinfo(currentframe())
 
 class Packet(object):
     def __init__(self, id: int = None):
@@ -19,15 +24,15 @@ class Packet(object):
              + str(len(self.data)).encode() + b'\r\n\r\n' \
              + bytes(self.data)
 
-    def pack_data(self, _data: Tuple[Any]) -> None:
+    def pack_data(self, _data: List[Tuple[Union[List[int], int, str, float]]]) -> None:
         # Pack data passed in the format:
         # ((data, data_type), ...)
-        print(f'L25: {_data}')
+        print(f'{_frameinfo.lineno}: {_data}')
         for data, type in _data:
             if type == dataTypes.INT_LIST:
                 self.data += len(data).to_bytes(1, 'little')
                 for i in data:
-                    self.data += _pack(self.get_fmtstr(dataTypes.SHORT), i)
+                    self.data += _pack(self.get_fmtstr(dataTypes.INT32), i)
                 continue
             elif type == dataTypes.STRING: # Cheap ass ULEB128
                 self.data += b'\x0b' + len(data).to_bytes(1, 'little') + data.encode()
@@ -39,7 +44,7 @@ class Packet(object):
             self.data += _pack(fmt, data)
         return
 
-    def unpack_data(self, types) -> Tuple[Any]: # TODO: return type
+    def unpack_data(self, types: List[int]) -> Tuple[Any]: # TODO: return type
         unpacked: List[Any] = []
         for type in types:
             if type == dataTypes.INT_LIST:
@@ -57,6 +62,7 @@ class Packet(object):
                 if self.data[self.offset] == 11: # String exists
                     self.offset += 1
 
+                    print(f'unpack_data L{_frameinfo.lineno}: {self.data[self.offset]}')
                     length: int = self.data[self.offset]
                     self.offset += 1
 
@@ -71,13 +77,13 @@ class Packet(object):
                 if not fmt:
                     print('HERE')
                     continue
-                unpacked.append(*[x for x in _unpack(f'<{fmt}', self.data[self.offset:self.offset + calcsize(fmt)])])
+                unpacked.extend([x for x in _unpack(f'<{fmt}', self.data[self.offset:self.offset + calcsize(fmt)])])
                 self.offset += calcsize(fmt)
             print(f'{type}: {self.data}')
         return tuple(unpacked)
 
     def read_data(self, data) -> None:
-        self.data = bytearray(data.encode())
+        self.data = bytearray(data)
         self.id, self.length = _unpack('<hi', self.data[self.offset:self.offset + 6]) # calcsize('<hi')
         self.offset += 6#calcsize('<hi')
         return
@@ -85,15 +91,15 @@ class Packet(object):
     @staticmethod
     def get_fmtstr(type: int) -> Optional[str]:
         if type in [dataTypes.INT_LIST, dataTypes.STRING]: return None
-        elif type == dataTypes.PAD_BYTE: return 'x'
-        elif type == dataTypes.SHORT: return 'h'
-        elif type == dataTypes.USHORT: return 'H'
-        elif type == dataTypes.INT: return 'i'
-        elif type == dataTypes.UINT: return 'I'
-        elif type == dataTypes.LONG: return 'l'
-        elif type == dataTypes.ULONG: return 'L'
-        elif type == dataTypes.LONGLONG: return 'q'
-        elif type == dataTypes.ULONGLONG: return 'Q'
+        #elif type == dataTypes.PAD_BYTE: return 'x'
+        elif type == dataTypes.INT16: return 'h'
+        elif type == dataTypes.UINT16: return 'H'
+        #elif type == dataTypes.INT32: return 'i'
+        #elif type == dataTypes.UINT32: return 'I'
+        elif type == dataTypes.INT32: return 'l'
+        elif type == dataTypes.UINT32: return 'L'
+        elif type == dataTypes.INT64: return 'q'
+        elif type == dataTypes.UINT64: return 'Q'
         elif type == dataTypes.FLOAT: return 'f'
         elif type == dataTypes.DOUBLE: return 'd'
         print(f'[WARN] Unknown dataType {type}.')
@@ -101,14 +107,14 @@ class Packet(object):
 
 class Connection(object):
     def __init__(self, data: bytes) -> None:
-        self.raw: List[str] = data.decode().split('\r\n\r\n', maxsplit = 1)
+        self.raw: List[bytes] = data.split(b'\r\n\r\n', maxsplit = 1)
         self.headers: Dict[str, str] = {}
-        self.parse_headers(self.raw[0].split('\r\n'))
-        self.body: str = self.raw[1]
+        self.parse_headers(self.raw[0].decode().split('\r\n'))
+        self.body: bytes = self.raw[1]
         return
 
     def parse_headers(self, _headers: bytes) -> None:
-        for line in self.raw[0].split('\r\n'):
+        for line in _headers:
             if ':' not in line: continue
             k, v = line.split(':')
             self.headers[k] = v.lstrip()

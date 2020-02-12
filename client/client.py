@@ -8,7 +8,7 @@ from objects import glob
 
 from common.objects.user import User
 from common.constants import dataTypes
-from common.constants import packetID
+from common.constants import packets
 from common.helpers.packetHelper import Packet, Connection
 #from objects import glob # not yet needed
 
@@ -38,14 +38,14 @@ class Client(object):
 
         # Connection established
         if not self.user: # Login
-            p = Packet(packetID.client_login)
+            p = Packet(packets.client_login)
 
             username: str = input('Username: ')
             password: str = input('Password: ')
             p.pack_data((
                 (username, dataTypes.STRING),
                 (password, dataTypes.STRING),
-                (_version, dataTypes.UINT)
+                (_version, dataTypes.UINT32)
             ))
 
             sock.send(p.get_data)
@@ -56,36 +56,43 @@ class Client(object):
                 print('Failed to recieve value from server.')
                 return
 
-            if resp == packetID.server_loginInvalidData:
+            if resp == packets.server_loginInvalidData:
                 print('Invalid login data.')
-            elif resp == packetID.server_loginNoSuchUsername:
+            elif resp == packets.server_loginNoSuchUsername:
                 print('No such username found.')
-            elif resp == packetID.server_loginIncorrectPassword:
+            elif resp == packets.server_loginIncorrectPassword:
                 print('Incorrect password.')
-            elif resp == packetID.server_loginBanned:
+            elif resp == packets.server_loginBanned:
                 print('Your account has been banned.')
-            elif resp == packetID.server_loginSuccess:
+            elif resp == packets.server_loginSuccess:
                 print('Authenticated.')
 
-                try: conn = Connection(sock.recv(glob.max_bytes))
-                except:
-                    print('Failed to connect #1')
-                    return
+                conn = Connection(sock.recv(glob.max_bytes))
+                print(conn.body)
+                #try: conn = Connection(sock.recv(glob.max_bytes))
+                #except:
+                #    print('Failed to connect #1')
+                #    return
 
                 p = Packet()
                 p.read_data(conn.body)
                 print(p.__dict__)
-                try: id, online = p.unpack_data(( # pylint: disable=unbalanced-tuple-unpacking
-                        dataTypes.USHORT,
-                        dataTypes.INT_LIST
-                    ))
-                except:
-                    print('failed #2')
-                    return
 
-                print(online)
+                #id =
+                #id = p.unpack_data((
+                #    dataTypes.BYTE
+                #))
+                print(p.unpack_data(( # pylint: disable=unbalanced-tuple-unpacking
+                    dataTypes.UINT16,
+                    dataTypes.INT_LIST
+                )))
+
                 exit(1)
-                self.user = User(id, username, _version)
+                #except:
+                #    print('failed #2')
+                #    return
+
+                #self.user = User(id, username, _version)
 
                 print(f'self.online_users: {self.online_users}')
             else: print(f'Invalid packetID {resp}')
