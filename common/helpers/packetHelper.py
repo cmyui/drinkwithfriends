@@ -52,11 +52,15 @@ class Packet(object):
                 length: int = self.data[self.offset]
                 self.offset += 1
 
+                #l.extend([int.from_bytes(self.data[self.offset:self.offset + 2], 'little') for _ in range(length)])
+
                 for _ in range(length):
                     l.append(int.from_bytes(self.data[self.offset:self.offset + 2], 'little'))
                     self.offset += 2
 
-                unpacked.extend(l)
+                print(f'l: {l}')
+                unpacked.append(l)
+                del l
             elif type == dataTypes.STRING: # cant be cheap this time :(
                 if self.data[self.offset] == 11: # String exists
                     self.offset += 1
@@ -79,7 +83,7 @@ class Packet(object):
                 print(f'fmt: {fmt}')
                 unpacked.extend([x for x in _unpack(f'<{fmt}', self.data[self.offset:self.offset + calcsize(fmt)])])
                 self.offset += calcsize(fmt)
-            print(f'{type}: {self.data}')
+            print(f'DATYPE {type}: {self.data}')
         return tuple(unpacked)
 
     def read_data(self, data) -> None:
