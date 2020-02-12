@@ -76,17 +76,16 @@ class Server(object):
         p.read_data(conn.body)
 
         if p.id == packets.client_login: # Login packet
-            try:
-                username, client_password, game_version = p.unpack_data([ # pylint: disable=unbalanced-tuple-unpacking
-                    dataTypes.STRING, # Username
-                    dataTypes.STRING, # Password
-                    dataTypes.UINT32 # Game version
-                ])
-            except Exception as err:
-                print(err)
-                self.sendPacketID(packets.server_loginInvalidData)
-                #self.sock.send(bytes([packets.server_loginInvalidData]))
-                return
+            username, client_password, game_version = p.unpack_data([ # pylint: disable=unbalanced-tuple-unpacking
+                dataTypes.STRING, # Username
+                dataTypes.STRING, # Password
+                dataTypes.UINT32 # Game version
+            ])
+            #except Exception as err:
+            #    print(err)
+            #    self.sendPacketID(packets.server_loginInvalidData)
+            #    #self.sock.send(bytes([packets.server_loginInvalidData]))
+            #    return
 
             # TODO: future 'anticheat' checks with game_version
 

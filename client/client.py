@@ -42,19 +42,18 @@ class Client(object):
 
             username: str = input('Username: ')
             password: str = input('Password: ')
-            p.pack_data((
+            p.pack_data([
                 (username, dataTypes.STRING),
                 (password, dataTypes.STRING),
                 (_version, dataTypes.UINT32)
-            ))
+            ])
 
             sock.send(p.get_data)
             del p
 
-            try: resp = ord(sock.recv(1))
-            except:
-                print('Failed to recieve value from server.')
-                return
+            resp = ord(sock.recv(1))
+            print('Failed to recieve value from server.')
+            return
 
             if resp == packets.server_loginInvalidData:
                 print('Invalid login data.')
@@ -69,30 +68,17 @@ class Client(object):
 
                 conn = Connection(sock.recv(glob.max_bytes))
                 print(conn.body)
-                #try: conn = Connection(sock.recv(glob.max_bytes))
-                #except:
-                #    print('Failed to connect #1')
-                #    return
 
                 p = Packet()
                 p.read_data(conn.body)
                 print(p.__dict__)
 
-                #id =
-                #id = p.unpack_data((
-                #    dataTypes.BYTE
-                #))
                 print(p.unpack_data(( # pylint: disable=unbalanced-tuple-unpacking
                     dataTypes.UINT16,
                     dataTypes.INT_LIST
                 )))
 
-                exit(1)
-                #except:
-                #    print('failed #2')
-                #    return
-
-                #self.user = User(id, username, _version)
+                self.user = User(id, username, _version)
 
                 print(f'self.online_users: {self.online_users}')
             else: print(f'Invalid packetID {resp}')
