@@ -49,6 +49,7 @@ class Packet(object):
             if type == dataTypes.INT_LIST:
                 l: List[int] = []
 
+                print(f'\n\nNOW\n{self.data}\n\n')
                 length: int = self.data[self.offset]
                 self.offset += 1
 
@@ -57,8 +58,9 @@ class Packet(object):
 
                 print(f'\nBEFORE\n{self.data}\n')
                 for _ in range(length):
-                    print(int.from_bytes(self.data[self.offset:self.offset + 2]))
-                    l.append(int.from_bytes(self.data[self.offset:self.offset + 2], 'little'))
+                    l.append(_unpack(self.get_fmtstr(dataTypes.INT16), self.data[self.offset:self.offset + 2]))
+                    #print(int.from_bytes(self.data[self.offset:self.offset + 2], 'little'))
+                    #l.append(int.from_bytes(self.data[self.offset:self.offset + 2], 'little'))
                     self.offset += 2
                 print(f'\nAFTER\n{self.data}\n')
 
@@ -93,8 +95,8 @@ class Packet(object):
         return ret
     def read_data(self, data) -> None:
         self.data = bytearray(data)
-        self.id, self.length = _unpack('<hi', self.data[self.offset:self.offset + 6]) # calcsize('<hi')
-        self.offset += 6#calcsize('<hi')
+        self.id, self.length = _unpack('<hi', self.data[self.offset:self.offset + calcsize('<hi')])
+        self.offset += calcsize('<hi')
         return
 
     @staticmethod
