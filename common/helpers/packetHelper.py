@@ -71,7 +71,6 @@ class Packet(object):
 
                     print(f'\nBEFORE\n{unpacked}\n')
                     unpacked.append(self.data[self.offset:self.offset + length].decode())
-                    print(f'\AFTER\n{unpacked}\n')
                     self.offset += length
 
                 else:
@@ -86,8 +85,10 @@ class Packet(object):
                 unpacked.extend([x for x in _unpack(f'<{fmt}', self.data[self.offset:self.offset + calcsize(fmt)])])
                 self.offset += calcsize(fmt)
             print(f'DATYPE {type}: {self.data}')
-        return tuple(unpacked)
 
+        ret = tuple(unpacked)
+        del unpacked
+        return ret
     def read_data(self, data) -> None:
         self.data = bytearray(data)
         self.id, self.length = _unpack('<hi', self.data[self.offset:self.offset + 6]) # calcsize('<hi')
