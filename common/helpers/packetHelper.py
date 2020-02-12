@@ -69,7 +69,9 @@ class Packet(object):
                     length: int = self.data[self.offset]
                     self.offset += 1
 
+                    print(f'\nBEFORE\n{self.data}\n')
                     unpacked.append(self.data[self.offset:self.offset + length].decode())
+                    print(f'\AFTER\n{self.data}\n')
                     self.offset += length
 
                 else:
