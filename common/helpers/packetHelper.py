@@ -16,6 +16,10 @@ class Packet(object):
         return
 
     def get_data(self) -> bytes:
+        """
+        Return the request in HTTP format.
+        This should be used in the final step of sending data to the client.
+        """
         self.data = _pack('<hi', self.id, len(self.data)) + bytes(self.data) # suboptimal as FUCK?
         #self.length = len(self.data)
         return f'HTTP/1.1 200 OK\r\nContent-Length: {len(self.data)}\r\n\r\n'.encode() + self.data
@@ -33,7 +37,6 @@ class Packet(object):
         for data, type in _data:
             if type in [dataTypes.INT16_LIST, dataTypes.INT32_LIST]:
                 self.data += data.__len__().to_bytes(1, 'little')
-                #self.data.append(data.__len__().to_bytes(1, 'little'))
                 for i in data: self.data += i.to_bytes(2 if type == dataTypes.INT16_LIST else 4, 'little')
                 continue
             elif type == dataTypes.STRING:
@@ -41,15 +44,8 @@ class Packet(object):
                     self.data += (11).to_bytes(1, 'little')
                     self.data += data.__len__().to_bytes(1, 'little')
                     self.data += data.encode()
-                    #self.data.append(11)
-                    #self.data.append(data.__len__())
-                    #self.data.extend(map(ord, data))
-                    #self.data.append(data.encode())
-                    #self.data.append((11).to_bytes(1, 'little') + data.__len__().to_bytes(1, 'little') + data.encode())
-                    #self.data += (11).to_bytes(1, 'little') + data.__len__().to_bytes(1, 'little') + data.encode()
                 else:
                     self.data += (0).to_bytes(1, 'little')
-                    #self.data.append(0)
                 continue
 
             fmt: str = self.get_fmtstr(type)
@@ -110,9 +106,10 @@ class Packet(object):
     def read_data(self, data) -> None:
         self.data = data
 
-        size = calcsize('<hi')
+        size: int = calcsize('<hi')
         self.id, self.length = _unpack('<hi', self.data[self.offset:self.offset + size])
         self.offset += size
+        del size
         return
 
     @staticmethod
