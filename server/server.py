@@ -50,7 +50,7 @@ class Server(object):
         print(f'[SERV] {colour.CYAN}Drink with Friends v{glob.config["version"]:.2f} @ localhost:{glob.config["port"]}')
 
         if start_loop:
-            self._handle_connections()
+            self.handle_connections()
 
         return
 
@@ -58,27 +58,28 @@ class Server(object):
         self.sock.send(packet_id.to_bytes(1, 'little'))
         return
 
-    def _handle_connections(self) -> None:
+    def handle_connections(self) -> None:
         while True:
-            self.sock, _ = self._sock.accept()
-            with self.sock: self.handle_connection()
+            with self._sock.accept()[0] as self.sock: # Don't even take the addr lol
+                data: Optional[bytes] = self.sock.recv(glob.max_bytes)
+                if len(data) == glob.max_bytes:
+                    print('[WARN] Max connection data recived. Most likely missing some data! (ignoring req)\n{data}')
+                    return
+
+                try: conn = Connection(data)
+                except:
+                    print('Ignored unknown packet')
+                    del data
+                    return
+                else: del data
+
+                with Packet() as packet:
+                    packet.read_data(conn.body)
+                    self._handle_connection(packet)
+
             self.served += 1
 
-    def handle_connection(self) -> None:
-        data: Optional[bytes] = self.sock.recv(128) # may need to be increased in the future?
-        print(data)
-        if len(data) == 128:
-            print('[WARN] Max connection data recived. Most likely missing some data! (ignoring req)\n{data}')
-            return
-
-        try: conn = Connection(data)
-        except:
-            print('Ignored unknown packet')
-            return
-
-        packet = Packet()
-        packet.read_data(conn.body)
-
+    def _handle_connection(self, packet: Packet) -> None:
         if packet.id == packets.client_login: # Login packet
             username, client_password, game_version = packet.unpack_data([ # pylint: disable=unbalanced-tuple-unpacking
                 dataTypes.STRING, # Username
@@ -88,7 +89,9 @@ class Server(object):
 
             del packet
 
-            # TODO: future 'anticheat' checks with game_version
+            if game_version < 100:
+                print(f'{username} attempted to login with an out-of-date client -- v{game_version}.')
+                return
 
             res = glob.db.fetch('SELECT id, password, privileges FROM users WHERE username_safe = %s', [username.replace(' ', '_').strip()])
 
@@ -97,6 +100,7 @@ class Server(object):
                 return
 
             u = User(res['id'], username, res['privileges'])
+
             # TODO: fix password check
             # if not checkpw(client_password.encode(), res['password'].encode()):
             #     self.send_byte(packets.server_loginIncorrectPassword)
@@ -115,32 +119,29 @@ class Server(object):
 
             glob.users.append(u)
             self.send_byte(packets.server_loginSuccess)
-            packet = Packet(packets.server_userInfo)
+            packet = Packet(packets.server_sendUserInfo)
 
             packet.pack_data([
                 (u.id, dataTypes.INT16), # the user's userid, from db
-                #(glob.users.__len__(), dataTypes.INT16), # the length of
-                ([u.id for u in glob.users], dataTypes.INT16_LIST)
+                ([u.id for u in glob.users], dataTypes.INT16_LIST) # length will be added as a single byte at beginning
             ])
 
             self.sock.send(packet.get_data())
             del packet
 
-            return
+        elif packet.id == packets.client_logout:
+            index = [u.id for u in glob.users].index(packet.unpack_data([dataTypes.INT16])[0])
+            print(f'{glob.users[index].username} has logged out.')
+            del glob.users[index]
 
-        elif packet.id == packets.client_logout: # DEFINITELY unsafe as fuck.
-            t = packet.unpack_data([dataTypes.INT16])[0]
-            print(*(x.id for x in glob.users))
-            glob.users = list(filter(lambda u: u.id != t, glob.users))
-            print(*(x.id for x in glob.users))
-
-            # TODO: broadcast to all clients
-
-            return
-        elif packet.id == packets.client_addBottle: # Adding a bottle to a user's inventory.
-            pass
-        elif packet.id == packets.client_takeShot: # Taking a shot.
-            pass
+        elif packet.id == packets.client_getOnlineUsers:
+            packet.pack_data([
+                ([u.id for u in glob.users], dataTypes.INT16_LIST),
+            ])
+            self.sock.send(packet.get_data())
+            del packet
+        else:
+            print(f'Unfinished packet requeted -- ID: {packet.id}')
 
         return
 

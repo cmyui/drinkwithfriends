@@ -14,9 +14,6 @@ from common.helpers.packetHelper import Packet, Connection
 from colorama import init as clr_init, Fore as colour
 clr_init(autoreset=True)
 
-global _version
-_version = 100
-
 class Client(object):
     def __init__(self, start_loop: bool = False):
         self.user = User()
@@ -25,44 +22,45 @@ class Client(object):
         self.online_users: List[int] = []
 
         if start_loop:
-            self.gameloop()
-            #self._handle_connections()
+            self._gameLoop()
 
-    def __del__(self):
+        return
+
+    def __del__(self) -> None:
         if self.user.id: # If we're logged in, log out before closing.
             self.make_request(packets.client_logout)
         print('Thanks for playing! <3')
+        return
 
-    def gameloop(self) -> None:
+    def _gameLoop(self) -> None:
         while True:
+
             self.print_main_menu()
-            choice: int = self.get_user_int(1, 10)
+            choice: int = self.get_user_int(0, 10)
 
             # TODO: constants with menu option names?
 
             # User
-            if choice == 1: self.make_request(packets.client_logout if self.user.id else packets.client_login) # Login / Logout.
-            elif choice == 2: pass # Check global leaderboards.
-            elif choice == 3: pass # List online users.
-            elif choice == 4: pass # Check your ledger.
+            if not choice: return
+            elif choice == 1: self.make_request(packets.client_logout if self.user.id else packets.client_login) # Login / Logout.
+            if self.user.id:
+                if choice == 2: self.make_request(packets.client_getOnlineUsers)
+                if choice == 2: pass # Check global leaderboards.
+                elif choice == 3: pass # List online users.
+                elif choice == 4: pass # Check your ledger.
 
-            # Mod
-            elif choice == 5: pass # Silence user.
-            elif choice == 6: pass # Check silence list.
+                # Mod
+                elif choice == 5: pass # Silence user.
+                elif choice == 6: pass # Check silence list.
 
-            # Admin
-            elif choice == 7: pass # Kick user.
-            elif choice == 8: pass # Ban user.
-            elif choice == 9: pass # Restart server.
-            elif choice == 10: pass # Shutdown server.
+                # Admin
+                elif choice == 7: pass # Kick user.
+                elif choice == 8: pass # Ban user.
+                elif choice == 9: pass # Restart server.
+                elif choice == 10: pass # Shutdown server.
 
         return
 
-    #def _handle_connections(self) -> None:
-    #    while True:
-    #        with socket(AF_INET, SOCK_STREAM) as s:
-    #            self.handle_connection(s)
-    #    return
 
     def make_request(self, packetID: int) -> None:
         with socket(AF_INET, SOCK_STREAM) as sock:
@@ -72,17 +70,16 @@ class Client(object):
                 return
 
             # We've established a valid connection.
-            packet = Packet(packetID)
-            self._handle_connection(sock, packet)
+            with Packet(packetID) as packet:
+                self._handle_connection(sock, packet)
+
         return
 
 
     def _handle_connection(self, sock: socket, packet: Packet) -> None:
 
         if packet.id == packets.client_login:
-            #p = Packet(packets.client_login)
-
-            username: str = input('Username: ')
+            username: str = input('\nUsername: ') # newline to space from menu
             password: str = input('Password: ')
             packet.pack_data([
                 (username, dataTypes.STRING),
@@ -121,21 +118,33 @@ class Client(object):
                 self.user.username = username
                 self.user._safe_username()
 
-                print(f'Online users: {self.online_users}')
+                print('Online users:', ', '.join(str(u) for u in self.online_users))
             else: print(f'Invalid packetID {resp}')
             return
         elif packet.id == packets.client_logout:
             print('Logging out..')
-            packet.pack_data([
-                (self.user.id, dataTypes.INT16)
-            ])
+            packet.pack_data([(self.user.id, dataTypes.INT16)])
             sock.send(packet.get_data())
             del packet
             self.user.__del__()
             return
+        elif packet.id == packets.client_getOnlineUsers:
+            sock.send(packet.get_data())
+            conn = Connection(sock.recv(glob.max_bytes))
+            packet.read_data(conn.body)
+
+            # TODO: fix (probably) offset
+
+            _online = packet.unpack_data((dataTypes.INT16_LIST,))
+            print(x for x in filter(lambda u: u not in _online, self.online_users))
+            #self.online_users = packet.unpack_data((dataTypes.INT16_LIST,))
+        elif packet.id == packets.client_addBottle:
+            pass
         else:
             print('[WARN] Unfinished packet.')
             input()
+
+        return
 
     @staticmethod
     def get_user_int(min: int, max: int) -> int:
@@ -155,6 +164,7 @@ class Client(object):
         print(
             f'[CLNT] {colour.LIGHTBLUE_EX}Drink with Friends v{self.version / 100:.2f}\n',
             '<- Main Menu ->',
+            '0. Exit',
             f'1. {"Logout" if self.user.id else "Login"}', sep='\n'
         )
         if self.user.id:

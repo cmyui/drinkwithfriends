@@ -15,6 +15,13 @@ class Packet(object):
         self.offset = 0 # only used for unpacking
         return
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        del self
+        return
+
     def get_data(self) -> bytes:
         """
         Return the request in HTTP format.
@@ -24,7 +31,7 @@ class Packet(object):
         #self.length = len(self.data)
         return f'HTTP/1.1 200 OK\r\nContent-Length: {len(self.data)}\r\n\r\n'.encode() + self.data
 
-    def pack_data(self, _data: List[Tuple[Union[List[int], int, str, float]]]) -> None:
+    def pack_data(self, _data: List[List[Union[List[int], int, str, float]]]) -> None:
         """
         Pack `_data` into `self.data`.
 
