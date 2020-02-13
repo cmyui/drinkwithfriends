@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Tuple, Optional, Union
 from socket import socket, AF_INET, SOCK_STREAM, error as sock_err
 from sys import exit
 from time import sleep
@@ -19,15 +19,19 @@ class Client(object):
         self.user = User()
         self.version = 100
 
-        self.online_users: List[int] = []
+        self.online_users: List[User] = []
 
         if start_loop:
             self._gameLoop()
 
         return
 
+    @property
+    def is_online(self) -> bool:
+        return self.user and self.user.id
+
     def __del__(self) -> None:
-        if self.user.id: # If we're logged in, log out before closing.
+        if self.is_online: # If we're logged in, log out before closing.
             self.make_request(packets.client_logout)
         print('Thanks for playing! <3')
         return
@@ -42,22 +46,34 @@ class Client(object):
 
             # User
             if not choice: return
-            elif choice == 1: self.make_request(packets.client_logout if self.user.id else packets.client_login) # Login / Logout.
-            if self.user.id:
-                if choice == 2: self.make_request(packets.client_getOnlineUsers)
-                if choice == 2: pass # Check global leaderboards.
-                elif choice == 3: pass # List online users.
-                elif choice == 4: pass # Check your ledger.
+            elif choice == 1:
+                self.make_request(packets.client_logout if self.is_online else packets.client_login) # Login / Logout.
+                continue
+            if self.is_online:
+                if choice == 2: # Check global leaderboards.
+                    pass
+                elif choice == 3:
+                    self.make_request(packets.client_getOnlineUsers)
+                    self.print_online_users() # List online users.
+                    continue
+                elif choice == 4: # Check your ledger.
+                    pass
 
                 # Mod
-                elif choice == 5: pass # Silence user.
-                elif choice == 6: pass # Check silence list.
+                elif choice == 5: # Silence user.
+                    pass
+                elif choice == 6: # Check silence list.
+                    pass
 
                 # Admin
-                elif choice == 7: pass # Kick user.
-                elif choice == 8: pass # Ban user.
-                elif choice == 9: pass # Restart server.
-                elif choice == 10: pass # Shutdown server.
+                elif choice == 7: # Kick user.
+                    pass
+                elif choice == 8: # Ban user.
+                    pass
+                elif choice == 9: # Restart server.
+                    pass
+                elif choice == 10: # Shutdown server.
+                    pass
 
         return
 
@@ -66,7 +82,7 @@ class Client(object):
         with socket(AF_INET, SOCK_STREAM) as sock:
             try: sock.connect((glob.ip, glob.port))
             except sock_err as err:
-                print(f'Failed to establish a connection to the server: {err}.')
+                print(f'{colour.LIGHTRED_EX}Failed to establish a connection to the server: {err}.\n')
                 return
 
             # We've established a valid connection.
@@ -82,9 +98,9 @@ class Client(object):
             username: str = input('\nUsername: ') # newline to space from menu
             password: str = input('Password: ')
             packet.pack_data([
-                (username, dataTypes.STRING),
-                (password, dataTypes.STRING),
-                (self.version, dataTypes.INT16)
+                [username, dataTypes.STRING],
+                [password, dataTypes.STRING],
+                [self.version, dataTypes.INT16]
             ])
 
             sock.send(packet.get_data())
@@ -108,36 +124,47 @@ class Client(object):
                 packet = Packet()
                 packet.read_data(conn.body)
 
-                self.user.id, self.online_users = packet.unpack_data(( # pylint: disable=unbalanced-tuple-unpacking
-                    dataTypes.INT16,
-                    dataTypes.INT16_LIST
-                ))
-
+                self.user.id = packet.unpack_data([dataTypes.INT16])[0]
+                #print(f'\n\n{[u for u in packet.unpack_data([dataTypes.USERINFO_LIST])]}\n\n')
+                resp = packet.unpack_data([dataTypes.USERINFO_LIST])
+                print(resp)
+                self.online_users = [User(*u) for u in resp]
                 del packet
 
                 self.user.username = username
-                self.user._safe_username()
+                #self.user._safe_username()
 
-                print('Online users:', ', '.join(str(u) for u in self.online_users))
+                #print('Online users:', f'{", ".join(u.username for u in self.online_users)}.')
+                self.print_online_users()
             else: print(f'Invalid packetID {resp}')
             return
         elif packet.id == packets.client_logout:
             print('Logging out..')
-            packet.pack_data([(self.user.id, dataTypes.INT16)])
+            packet.pack_data([[self.user.id, dataTypes.INT16]])
             sock.send(packet.get_data())
             del packet
             self.user.__del__()
             return
         elif packet.id == packets.client_getOnlineUsers:
             sock.send(packet.get_data())
-            conn = Connection(sock.recv(glob.max_bytes))
-            packet.read_data(conn.body)
+            del packet
 
-            # TODO: fix (probably) offset
-
-            _online = packet.unpack_data((dataTypes.INT16_LIST,))
-            print(x for x in filter(lambda u: u not in _online, self.online_users))
-            #self.online_users = packet.unpack_data((dataTypes.INT16_LIST,))
+            conn = Connection(sock.recv(glob.max_bytes)) # TODO: with conn
+            with Packet() as packet:
+                packet.read_data(conn.body)
+                resp: Tuple[Union[int, str]] = packet.unpack_data([dataTypes.USERINFO_LIST])
+                _t = [x for x in [_x[1] for _x in resp] if x not in [u.username for u in self.online_users]] # lmao
+                if _t: # TODO: logouts
+                    print(f'Login: {", ".join(_t)}.')
+                    self.online_users = [User(*u) for u in resp]
+                del resp, _t
+                #if list(filter(lambda u: u.id not in ))
+                #self.online_users = [User(*u) for u in packet.unpack_data([dataTypes.USERINFO_LIST])]
+                #_online = packet.unpack_data([dataTypes.USERINFO_LIST])[0]
+                #changes = list(filter(lambda u: u not in _online, self.online_users))
+                #if changes: print(f'Login: {", ".join(changes)}.')
+                #self.online_users = _online
+                #del _online, changes
         elif packet.id == packets.client_addBottle:
             pass
         else:
@@ -165,26 +192,32 @@ class Client(object):
             f'[CLNT] {colour.LIGHTBLUE_EX}Drink with Friends v{self.version / 100:.2f}\n',
             '<- Main Menu ->',
             '0. Exit',
-            f'1. {"Logout" if self.user.id else "Login"}', sep='\n'
+            f'1. {"Logout" if self.is_online else "Login"}', sep='\n'
         )
-        if self.user.id:
+        if self.is_online:
             print(
                 '2. Check global leaderboards.',
                 '3. List online users.',
                 '4. Check your ledger.', sep='\n'
             )
-        if self.user.privileges & privileges.MOD_PERMS:
-            print(
-                '5. Silence user.',
-                '6. Check silence list.', sep='\n'
-            )
-        if self.user.privileges & privileges.ADMIN_PERMS:
-            print(
-                '7. Kick user.',
-                '8. Ban user.',
-                '9. Restart server.',
-                '10. Shutdown server.', sep='\n'
-            )
+            if self.user.privileges & privileges.MOD_PERMS:
+                print(
+                    '5. Silence user.',
+                    '6. Check silence list.', sep='\n'
+                )
+            if self.user.privileges & privileges.ADMIN_PERMS:
+                print(
+                    '7. Kick user.',
+                    '8. Ban user.',
+                    '9. Restart server.',
+                    '10. Shutdown server.', sep='\n'
+                )
+        return
+
+    def print_online_users(self) -> None:
+        print('\n<- Online Users ->')
+        for u in self.online_users: print(f'{u.id} - {u.username}.')
+        print('')
         return
 
 if __name__ == '__main__':

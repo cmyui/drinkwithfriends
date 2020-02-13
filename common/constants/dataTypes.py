@@ -22,3 +22,7 @@ STRING = 12 # ULEB128
 # List of integers
 INT16_LIST = 13
 INT32_LIST = 14
+
+# Custom types, for our classes.
+USERINFO = 15
+USERINFO_LIST = 16
