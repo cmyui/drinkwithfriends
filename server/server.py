@@ -27,6 +27,7 @@ glob.db = dbConnector.SQLPool(
         'user': glob.config['mysql_user'],
         'password': glob.config['mysql_passwd'],
         'host': glob.config['mysql_host'],
+        'port': 3306,
         'database': glob.config['mysql_database']
     }
 )
@@ -54,7 +55,7 @@ class Server(object):
         return
 
     def sendPacketID(self, packet_id) -> None:
-        self.sock.send(bytes([packet_id]))
+        self.sock.send(packet_id.to_bytes(1, 'little'))
         return
 
     def _handle_connections(self) -> None:
@@ -82,7 +83,7 @@ class Server(object):
             username, client_password, game_version = p.unpack_data([ # pylint: disable=unbalanced-tuple-unpacking
                 dataTypes.STRING, # Username
                 dataTypes.STRING, # Password
-                dataTypes.UINT32 # Game version
+                dataTypes.INT16 # Game version
             ])
             #except Exception as err:
             #    print(err)
@@ -106,7 +107,7 @@ class Server(object):
             #     self.sock.send(bytes([packets.server_loginIncorrectPassword]))
             #     return
 
-            del res
+            del client_password, res
 
             if not u.privileges:
                 print(f'Banned user {username} attempted to login.')
@@ -124,7 +125,7 @@ class Server(object):
 
             p.pack_data([
                 (u.id, dataTypes.INT16), # the user's userid, from db
-                (glob.users.__len__(), dataTypes.INT16), # the length of
+                #(glob.users.__len__(), dataTypes.INT16), # the length of
                 ([u.id for u in glob.users], dataTypes.INT16_LIST)
             ])
 
@@ -135,7 +136,7 @@ class Server(object):
             #    #*((u.id, dataTypes.UINT16) for u in glob.users) # List of online users
             #))
 
-            self.sock.send(p.get_data)
+            self.sock.send(p.get_data())
             return
 
         elif p.id == packets.client_addBottle: # Adding a bottle to a user's inventory.

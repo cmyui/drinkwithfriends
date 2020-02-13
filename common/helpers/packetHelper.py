@@ -15,13 +15,10 @@ class Packet(object):
         self.offset = 0 # only used for unpacking
         return
 
-    #@property # Convert to bytestring and return.
     def get_data(self) -> bytes:
         self.data = _pack('<hi', self.id, len(self.data)) + bytes(self.data) # suboptimal as FUCK?
         #self.length = len(self.data)
-        return b'HTTP/1.1 200 OK\r\nContent-Length: ' \
-             + bytes(str(len(self.data))) + b'\r\n\r\n'     \
-             + bytes(self.data)
+        return f'HTTP/1.1 200 OK\r\nContent-Length: {len(self.data)}\r\n\r\n'.encode() + self.data
 
     def pack_data(self, _data: List[Tuple[Union[List[int], int, str, float]]]) -> None:
         """
@@ -35,8 +32,9 @@ class Packet(object):
         """
         for data, type in _data:
             if type in [dataTypes.INT16_LIST, dataTypes.INT32_LIST]:
-                self.data.append(data.__len__().to_bytes(1, 'little'))
-                for i in data: i.to_bytes(2 if type == dataTypes.INT16_LIST else 4, 'little')
+                self.data += data.__len__().to_bytes(1, 'little')
+                #self.data.append(data.__len__().to_bytes(1, 'little'))
+                for i in data: self.data += i.to_bytes(2 if type == dataTypes.INT16_LIST else 4, 'little')
                 continue
             elif type == dataTypes.STRING:
                 if data:
@@ -58,7 +56,6 @@ class Packet(object):
             if not fmt: continue
             else: fmt = f'<{fmt}'
 
-            #self.data.extend(tmp) # suboptimal as fuck?
             self.data += _pack(fmt, data)
         return
 
@@ -79,10 +76,10 @@ class Packet(object):
                 l: List[int] = []
 
                 length: int = self.data[self.offset]
-                self.offset += 2
+                self.offset += 1
 
-                for _ in range(0, length, 2 if dataTypes.INT16_LIST else 4):
-                    l.append(_unpack(self.get_fmtstr(dataTypes.INT16), self.data[self.offset:self.offset + 2 if dataTypes.INT16_LIST else 4]))
+                for _ in range(0, length):
+                    l.extend(_unpack(self.get_fmtstr(dataTypes.INT16 if dataTypes.INT16_LIST else dataTypes.INT32), self.data[self.offset:self.offset + (2 if dataTypes.INT16_LIST else 4)]))
                     self.offset += 2 if dataTypes.INT16_LIST else 4
 
                 unpacked.append(l)

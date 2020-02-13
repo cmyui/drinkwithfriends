@@ -47,8 +47,7 @@ class Client(object):
                 (password, dataTypes.STRING),
                 (_version, dataTypes.INT16)
             ])
-
-            sock.send(p.get_data)
+            sock.send(p.get_data())
             del p
 
             resp: int = ord(sock.recv(1))
