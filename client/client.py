@@ -45,15 +45,13 @@ class Client(object):
             p.pack_data([
                 (username, dataTypes.STRING),
                 (password, dataTypes.STRING),
-                (_version, dataTypes.UINT32)
+                (_version, dataTypes.INT16)
             ])
 
             sock.send(p.get_data)
             del p
 
-            resp = ord(sock.recv(1))
-            print('Failed to recieve value from server.')
-            return
+            resp: int = ord(sock.recv(1))
 
             if resp == packets.server_loginInvalidData:
                 print('Invalid login data.')
@@ -67,25 +65,24 @@ class Client(object):
                 print('Authenticated.')
 
                 conn = Connection(sock.recv(glob.max_bytes))
-                print(conn.body)
 
                 p = Packet()
                 p.read_data(conn.body)
-                print(p.__dict__)
-
-                print(p.unpack_data(( # pylint: disable=unbalanced-tuple-unpacking
-                    dataTypes.UINT16,
-                    dataTypes.INT_LIST
-                )))
+                print('FINAL RESULT', p.unpack_data(( # pylint: disable=unbalanced-tuple-unpacking
+                    dataTypes.INT16,
+                    dataTypes.INT16_LIST
+                )), sep='\n')
 
                 self.user = User(id, username, _version)
 
                 print(f'self.online_users: {self.online_users}')
             else: print(f'Invalid packetID {resp}')
             return
-        else: print('how did i get here?')
+        else:
+            print('[WARN] Unfinished packet.')
+            input()
 
 if __name__ == '__main__':
-    Client(True)
+    Client(start_loop = True)
 
 print('Thanks for playing! <3')

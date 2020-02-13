@@ -20,4 +20,5 @@ DOUBLE = 11
 STRING = 12 # ULEB128
 
 # List of integers
-INT_LIST = 13
+INT16_LIST = 13
+INT32_LIST = 14

@@ -46,6 +46,8 @@ class Server(object):
 
         self.sock: Optional[socket] = None # Current 'instance' socket.
 
+        print(f'[SERV] {colour.CYAN}Drink with Friends v{glob.config["version"]:.2f} @ localhost:{glob.config["port"]}')
+
         if start_loop:
             self._handle_connections()
 
@@ -63,6 +65,7 @@ class Server(object):
 
     def handle_connection(self) -> None:
         data: Optional[bytes] = self.sock.recv(128) # may need to be increased in the future?
+        print(data)
         if len(data) == 128:
             print('[WARN] Max connection data recived. Most likely missing some data! (ignoring req)\n{data}')
             return
@@ -120,18 +123,18 @@ class Server(object):
             p = Packet(packets.server_userInfo)
 
             p.pack_data([
-                (u.id, dataTypes.UINT16), # the user's userid, from db
-                (len(glob.users), dataTypes.UINT16), # the length of
-                ([u.id for u in glob.users], dataTypes.INT_LIST)
+                (u.id, dataTypes.INT16), # the user's userid, from db
+                (glob.users.__len__(), dataTypes.INT16), # the length of
+                ([u.id for u in glob.users], dataTypes.INT16_LIST)
             ])
+
             #p.pack_data((
             #    (u.id, dataTypes.UINT16),
             #    (len(glob.users), dataTypes.UINT16), # Length of the list of online users
-            #    (([u.id for u in glob.users]), dataTypes.INT_LIST)
+            #    (([u.id for u in glob.users]), dataTypes.INT16_LIST)
             #    #*((u.id, dataTypes.UINT16) for u in glob.users) # List of online users
             #))
 
-            print(f'GETED\n{p.get_data}\n')
             self.sock.send(p.get_data)
             return
 
@@ -143,7 +146,6 @@ class Server(object):
         return
 
 if __name__ == '__main__':
-    print(f'[SERV] {colour.CYAN}Drink with Friends v{glob.config["version"]:.2f}')
     Server(start_loop = True)
 
     # Free SQL connections
