@@ -3,16 +3,12 @@ from common.constants import dataTypes, packets
 from common.objects.user import User
 from struct import pack as _pack, unpack as _unpack, calcsize
 
-# testing
-from inspect import currentframe, getframeinfo
-
 class Packet(object):
     def __init__(self, id: Optional[int] = None):
         self.id: Optional[int] = id
         #self.data: bytearray = bytearray()
         self.data: bytes = b''
         self.length = 0
-
         self.offset = 0 # only used for unpacking
         return
 
@@ -35,11 +31,7 @@ class Packet(object):
         """
         Pack `_data` into `self.data`.
 
-        Data should be passed into this function in the format as followed:
-        [
-          (data, data_type),
-          ...
-        ]
+        Data should be passed into this function in the format [[data, data_type], ...]
         """
         for data, type in _data:
             if type in [dataTypes.INT16_LIST, dataTypes.INT32_LIST]:
@@ -57,78 +49,87 @@ class Packet(object):
                 self.data += _pack(fmt, data)
         return
 
-
     def unpack_data(self, types: List[int]) -> Tuple[Any]: # TODO: return type
         """
         Unpack `self.data` one var at a time from with the types from `types`.
 
-        Types should be passed in the format as follows:
-        [
-           dataTypes.INT32,
-           ...
-        ]
+        Types should be passed in the format [data_type, ...]
         """
         unpacked: List[Any] = []
         for type in types:
             if type in [dataTypes.INT16_LIST, dataTypes.INT32_LIST]:
-                l: List[int] = []
+                """
+                Send a list of integers.
 
+                Format:
+                  > 1 byte: length of list
+                  > 2/4 bytes: (depending on int16/int32 list) for each int
+                """
+                l: List[int] = []
                 length: int = self.data[self.offset]
                 self.offset += 1
-
                 size: int = 2 if dataTypes.INT16_LIST else 4
-                for _ in range(0, length):
-                    l.extend(_unpack('<h' if dataTypes.INT16_LIST else '<i', self.data[self.offset:self.offset + size]))
+                for _ in range(length):
+                    l.extend(_unpack('<h' if type == dataTypes.INT16_LIST else '<i', self.data[self.offset:self.offset + size]))
                     self.offset += size
-
                 unpacked.append(tuple(l))
                 del l
             elif type == dataTypes.STRING: # cant be cheap this time :(
-                if self.data[self.offset] == 11: # String exists
+                """
+                Pack a string.
+
+                Format:
+                  > 1 byte: '\x0b' if string is not empty, '\x00' if empty
+                  > 1 byte: length
+                  > indef. bytes: our string
+                """
+                if self.data[self.offset] == 11: # '\x0b
                     self.offset += 1
                     length: int = self.data[self.offset]
                     self.offset += 1
                     unpacked.append(self.data[self.offset:self.offset + length].decode())
                     self.offset += length
-                else: self.offset += 1
+                else: self.offset += 1 # '\x00'
+            elif type == dataTypes.USERINFO:
+                """
+                Pack basic information about a user.
+
+                Format:
+                  > 2 bytes: userID
+                  > 1 byte: length of subsequent usernmae string
+                  > indef. bytes: username string
+                  > 2 bytes: privileges
+                """
+                unpacked.append(_unpack('<h', self.data[self.offset:self.offset + 2])) # userid
+                self.offset += 2
+                length: int = self.data[self.offset] # username (note: '\x0b' byte is not sent here)
+                self.offset += 1
+                unpacked.append(self.data[self.offset:self.offset + length].decode())
+                self.offset += length
+                unpacked.append(_unpack('<h', self.data[self.offset:self.offset + 2])) # privileges
             elif type == dataTypes.USERINFO_LIST:
-                #l: List[User] = []
+                """
+                Pack basic information for multiple users.
+
+                Format:
+                  > 1 byte: length of list
+                  > indef. bytes: list of `USERINFO` types.
+                """
                 length: int = self.data[self.offset]
                 self.offset += 1
-
-                for _ in range(0, length):
-                    #l.extend(_unpack('<h', self.data[self.offset:self.offset + 2]))
-                    #self.offset += 2
-                    #length: int = self.data[self.offset]
-                    #self.offset += 1
-                    #l.append(self.data[self.offset:self.offset + length].decode())
-                    #self.offset += length
-                    #l.extend(_unpack('<h', self.data[self.offset:self.offset + 2]))
-                    #self.offset += 2
-                    unpacked.append([ # because fuck u i feel like it
+                for _ in range(length):
+                    unpacked.append([ # ugly code lol
                         *_unpack('<h', self.data[self.offset:self.offset + 2]),
                         self.data[self.offset + 3: self.offset + 3 + self.data[self.offset + 2]].decode(),
                         *_unpack('<h', self.data[self.offset + 3 + self.data[self.offset + 2]:self.offset + 3 + self.data[self.offset + 2] + 2])
                     ])
                     self.offset += 3 + self.data[self.offset + 2] + 2
-                    #l.append([ # because fuck u i feel like it
-                    #    *_unpack('<h', self.data[self.offset:self.offset + 2]),
-                    #    self.data[self.offset + 3: self.offset + 3 + self.data[self.offset + 2]].decode(),
-                    #    *_unpack('<h', self.data[self.offset + 3 + self.data[self.offset + 2]:self.offset + 3 + self.data[self.offset + 2] + 2])
-                    #])
-                #unpacked.append(tuple(l))
-                #del l
-            elif type == dataTypes.USERINFO:
-                unpacked.append(_unpack('<h', self.data[self.offset:self.offset + 2])) # userid
-                self.offset += 2
-
-                length: int = self.data[self.offset] # username (note: '\x0b' byte is not sent here)
-                self.offset += 1
-                unpacked.append(self.data[self.offset:self.offset + length].decode())
-                self.offset += length
-
-                unpacked.append(_unpack('<h', self.data[self.offset:self.offset + 2])) # privileges
             else:
+                """
+                Pack something using the `struct` library.
+
+                This will be used only for primitive types.
+                """
                 fmt: str = self.get_fmtstr(type)
                 if not fmt: continue
                 else: fmt = f'<{fmt}'
@@ -136,9 +137,13 @@ class Packet(object):
                 self.offset += calcsize(fmt)
 
         return tuple(unpacked)
-    def read_data(self, data) -> None:
-        self.data = data
 
+    def read_data(self, data) -> None:
+        """
+        Read the ID and length of a packet.
+        (increments the offset accordingly)
+        """
+        self.data = data
         size: int = calcsize('<hh')
         self.id, self.length = _unpack('<hh', self.data[self.offset:self.offset + size])
         self.offset += size
@@ -147,21 +152,16 @@ class Packet(object):
 
     @staticmethod
     def get_fmtstr(type: int) -> Optional[str]:
-        #if type in [
-        #    dataTypes.INT32_LIST,
-        #    dataTypes.INT16_LIST,
-        #    dataTypes.STRING
-        #]: return
-        #elif type == dataTypes.PAD_BYTE: return 'x'
-        if type == dataTypes.INT16: return 'h'
+        """
+        Get the format string for a primitive type from `dataTypes`.
+        """
+        if   type == dataTypes.INT16:  return 'h'
         elif type == dataTypes.UINT16: return 'H'
-        elif type == dataTypes.INT32: return 'i'
-        elif type == dataTypes.UINT32: return 'I'
-        #elif type == dataTypes.INT32: return 'l'
-        #elif type == dataTypes.UINT32: return 'L'
-        elif type == dataTypes.INT64: return 'q'
+        elif type == dataTypes.INT32:  return 'i' # not using long
+        elif type == dataTypes.UINT32: return 'I' #
+        elif type == dataTypes.INT64:  return 'q'
         elif type == dataTypes.UINT64: return 'Q'
-        elif type == dataTypes.FLOAT: return 'f'
+        elif type == dataTypes.FLOAT:  return 'f'
         elif type == dataTypes.DOUBLE: return 'd'
         print(f'[WARN] Unknown dataType {type}.')
         return
@@ -174,9 +174,10 @@ class Connection(object):
         return
 
     def parse_headers(self, _headers: bytes) -> None:
+        """
+        Parse HTTP headers, splitting them into a dictionary.
+        """
         self.headers: Dict[str, str] = {}
-        for line in _headers:
-            if ':' not in line: continue
-            k, v = line.split(':')
+        for k, v in (line.split(':') for line in _headers if ':' in line):
             self.headers[k] = v.lstrip()
         return

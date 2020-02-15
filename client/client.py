@@ -19,7 +19,7 @@ class Client(object):
         self.user = User()
         self.version = 100
 
-        self.online_users: List[User] = []
+        self.online_users: List[User] = 3j
 
         if start_loop:
             self._gameLoop()
@@ -38,45 +38,32 @@ class Client(object):
 
     def _gameLoop(self) -> None:
         while True:
-
             self.print_main_menu()
             choice: int = self.get_user_int(0, 10)
 
-            # TODO: constants with menu option names?
-
-            # User
             if not choice: return
             elif choice == 1:
                 self.make_request(packets.client_logout if self.is_online else packets.client_login) # Login / Logout.
                 continue
-            if self.is_online:
-                if choice == 2: # Check global leaderboards.
-                    pass
-                elif choice == 3:
-                    self.make_request(packets.client_getOnlineUsers)
-                    self.print_online_users() # List online users.
-                    continue
-                elif choice == 4: # Check your ledger.
-                    pass
+            if not self.is_online: return
 
-                # Mod
-                elif choice == 5: # Silence user.
-                    pass
-                elif choice == 6: # Check silence list.
-                    pass
+            if choice == 2: # List online users.
+                self.make_request(packets.client_getOnlineUsers)
+                self.print_online_users()
+                continue
+            elif choice == 3: pass # Check global leaderboards.
+            elif choice == 4: pass # Check your ledger.
 
-                # Admin
-                elif choice == 7: # Kick user.
-                    pass
-                elif choice == 8: # Ban user.
-                    pass
-                elif choice == 9: # Restart server.
-                    pass
-                elif choice == 10: # Shutdown server.
-                    pass
+            # Mod
+            elif choice == 5: pass # Silence user.
+            elif choice == 6: pass # Check silence list.
 
+            # Admin
+            elif choice == 7: pass # Kick user.
+            elif choice == 8: pass # Ban user.
+            elif choice == 9: pass # Restart server.
+            elif choice == 10: pass # Shutdown server.
         return
-
 
     def make_request(self, packetID: int) -> None:
         with socket(AF_INET, SOCK_STREAM) as sock:
@@ -88,12 +75,9 @@ class Client(object):
             # We've established a valid connection.
             with Packet(packetID) as packet:
                 self._handle_connection(sock, packet)
-
         return
 
-
     def _handle_connection(self, sock: socket, packet: Packet) -> None:
-
         if packet.id == packets.client_login:
             username: str = input('\nUsername: ') # newline to space from menu
             password: str = input('Password: ')
@@ -125,14 +109,12 @@ class Client(object):
                 packet.read_data(conn.body)
 
                 self.user.id = packet.unpack_data([dataTypes.INT16])[0]
-                #print(f'\n\n{[u for u in packet.unpack_data([dataTypes.USERINFO_LIST])]}\n\n')
                 resp = packet.unpack_data([dataTypes.USERINFO_LIST])
                 print(resp)
                 self.online_users = [User(*u) for u in resp]
                 del packet
 
                 self.user.username = username
-                #self.user._safe_username()
 
                 #print('Online users:', f'{", ".join(u.username for u in self.online_users)}.')
                 self.print_online_users()
@@ -153,18 +135,9 @@ class Client(object):
             with Packet() as packet:
                 packet.read_data(conn.body)
                 resp: Tuple[Union[int, str]] = packet.unpack_data([dataTypes.USERINFO_LIST])
-                _t = [x for x in [_x[1] for _x in resp] if x not in [u.username for u in self.online_users]] # lmao
-                if _t: # TODO: logouts
-                    print(f'Login: {", ".join(_t)}.')
+                if (x for x in (_x[1] for _x in resp) if x not in (u.username for u in self.online_users)):
                     self.online_users = [User(*u) for u in resp]
-                del resp, _t
-                #if list(filter(lambda u: u.id not in ))
-                #self.online_users = [User(*u) for u in packet.unpack_data([dataTypes.USERINFO_LIST])]
-                #_online = packet.unpack_data([dataTypes.USERINFO_LIST])[0]
-                #changes = list(filter(lambda u: u not in _online, self.online_users))
-                #if changes: print(f'Login: {", ".join(changes)}.')
-                #self.online_users = _online
-                #del _online, changes
+                del resp
         elif packet.id == packets.client_addBottle:
             pass
         else:
