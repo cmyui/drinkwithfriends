@@ -40,8 +40,12 @@ class Packet(object):
             elif type == dataTypes.STRING: self.data += (b'\x0b' + data.__len__().to_bytes(1, 'little') + data.encode()) if data else b'\x00'
             elif type == dataTypes.USERINFO_LIST:
                 self.data += data.__len__().to_bytes(1, 'little')
-                for u in data: self.data += _pack('<h', u[0]) + u[1].__len__().to_bytes(1, 'little') + u[1].encode() + _pack('<h', u[2])
-            elif type == dataTypes.USERINFO: self.data += _pack('<h', data[0]) + data[1].__len__().to_bytes(1, 'little') + data[1].encode() + _pack('<h', data[2])
+                for u in data: self.data += u[0].__len__().to_bytes(1, 'little') + u[0].encode() + _pack('<hh', *u[1:3])
+            elif type == dataTypes.USERINFO: self.data += data[0].__len__().to_bytes(1, 'little') + data[0].encode() + _pack('<hh', *data[1:3])
+            elif type == dataTypes.BOTTLE: self.data += data[0].__len__().to_bytes(1, 'little') + data[0].encode() + _pack('<hf', *data[1:3])
+            elif type == dataTypes.BOTTLE_LIST:
+                self.data += data.__len__().to_bytes(1, 'little')
+                for b in data: self.data += b[0].__len__().to_bytes(1, 'little') + b[0].encode() + _pack('<hf', *b[1:3])
             else:
                 fmt: str = self.get_fmtstr(type)
                 if not fmt: continue
@@ -66,10 +70,9 @@ class Packet(object):
                   > 2/4 bytes: (depending on int16/int32 list) for each int
                 """
                 l: List[int] = []
-                length: int = self.data[self.offset]
                 self.offset += 1
                 size: int = 2 if dataTypes.INT16_LIST else 4
-                for _ in range(length):
+                for _ in range(self.data[self.offset - 1]):
                     l.extend(_unpack('<h' if type == dataTypes.INT16_LIST else '<i', self.data[self.offset:self.offset + size]))
                     self.offset += size
                 unpacked.append(tuple(l))
@@ -100,13 +103,18 @@ class Packet(object):
                   > indef. bytes: username string
                   > 2 bytes: privileges
                 """
-                unpacked.append(_unpack('<h', self.data[self.offset:self.offset + 2])) # userid
-                self.offset += 2
                 length: int = self.data[self.offset] # username (note: '\x0b' byte is not sent here)
                 self.offset += 1
+
+                # Username
                 unpacked.append(self.data[self.offset:self.offset + length].decode())
                 self.offset += length
-                unpacked.append(_unpack('<h', self.data[self.offset:self.offset + 2])) # privileges
+
+                # UserID
+                unpacked.append(_unpack('<h', self.data[self.offset:self.offset + 2])) # TODO: combine
+                self.offset += 2
+                unpacked.append(_unpack('<h', self.data[self.offset:self.offset + 2]))
+                self.offset += 2
             elif type == dataTypes.USERINFO_LIST:
                 """
                 Pack basic information for multiple users.
@@ -115,19 +123,57 @@ class Packet(object):
                   > 1 byte: length of list
                   > indef. bytes: list of `USERINFO` types.
                 """
+                self.offset += 1
+                for _ in range(self.data[self.offset - 1]):
+                    strlen: int = self.data[self.offset]
+                    self.offset += 1
+                    unpacked.append([ # ugly code lol
+                        self.data[self.offset:self.offset + strlen].decode(),
+                        *_unpack('<h', self.data[self.offset + strlen:self.offset + strlen + 2]), # TODO: combine
+                        *_unpack('<h', self.data[self.offset + 2 + strlen:self.offset + 2 + strlen + 2])
+                    ])
+                    self.offset += strlen + 4
+                #del unpacked
+            elif type == dataTypes.BOTTLE:
+                """
+                Pack a bottle's basic information.
+
+                Format:
+                  > 1 byte: length of subsequent bottle name string
+                  > indef. bytes: bottle name string
+                  > 2 bytes: bottle volume
+                  > 4 bytes: bottle abv
+                """
                 length: int = self.data[self.offset]
                 self.offset += 1
-                for _ in range(length):
-                    unpacked.append([ # ugly code lol
-                        *_unpack('<h', self.data[self.offset:self.offset + 2]),
-                        self.data[self.offset + 3: self.offset + 3 + self.data[self.offset + 2]].decode(),
-                        *_unpack('<h', self.data[self.offset + 3 + self.data[self.offset + 2]:self.offset + 3 + self.data[self.offset + 2] + 2])
+                unpacked.append(self.data[self.offset:self.offset + length].decode()) # bottle name
+                self.offset += length
+
+                unpacked.extend(_unpack('<h', self.data[self.offset:self.offset + 2])) # volume
+                self.offset += 2
+                unpacked.extend(_unpack('<f', self.data[self.offset:self.offset + 4])) # abv
+                self.offset += 4
+            elif type == dataTypes.BOTTLE_LIST:
+                """
+                Pack information about a list of bottles.
+
+                Format:
+                  > 1 byte: length of bottle list.
+                  > indef. bytes: list of `BOTTLE` types.
+                """
+                self.offset += 1
+                for _ in range(self.data[self.offset - 1]):
+                    strlen: int = self.data[self.offset]
+                    self.offset += 1
+                    unpacked.append([
+                        self.data[self.offset: self.offset + strlen].decode(),
+                        *_unpack('<h', self.data[self.offset + strlen:self.offset + strlen + 2]), # TODO; combine
+                        *_unpack('<f', self.data[self.offset + strlen + 2:self.offset + strlen + 2 + 4])
                     ])
-                    self.offset += 3 + self.data[self.offset + 2] + 2
+                    self.offset += strlen + 6
             else:
                 """
                 Pack something using the `struct` library.
-
                 This will be used only for primitive types.
                 """
                 fmt: str = self.get_fmtstr(type)
@@ -135,7 +181,6 @@ class Packet(object):
                 else: fmt = f'<{fmt}'
                 unpacked.extend([x for x in _unpack(fmt, self.data[self.offset:self.offset + calcsize(fmt)])])
                 self.offset += calcsize(fmt)
-
         return tuple(unpacked)
 
     def read_data(self, data) -> None:

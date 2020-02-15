@@ -12,7 +12,10 @@ from common.constants import packets
 from common.helpers.packetHelper import Packet, Connection
 from common.db import dbConnector
 from objects import glob
+
 from common.objects.user import User
+from common.objects.bottle import Bottle
+from common.objects.inventory import Inventory
 
 from colorama import init as clr_init, Fore as colour
 clr_init(autoreset=True)
@@ -101,37 +104,38 @@ class Server(object):
                 print(f'{username} attempted to login with an out-of-date client -- v{game_version}.')
                 return
 
-            res = self.db.fetch('SELECT id, password, privileges FROM users WHERE username_safe = %s', [username.replace(' ', '_').strip()])
+            res = self.db.fetch('SELECT id, password, privileges FROM users WHERE username_safe = %s', [User.safe_username(username)])
 
             if not res:
-                self.send_byte(packets.server_loginNoSuchUsername)
+                self.send_byte(packets.server_generalNoSuchUsername)
                 return
 
             u = User(res['id'], username, res['privileges'])
 
-            # TODO: fix password check
-            # if not checkpw(client_password.encode(), res['password'].encode()):
-            #     self.send_byte(packets.server_loginIncorrectPassword)
-            #     self.sock.send(bytes([packets.server_loginIncorrectPassword]))
-            #     return
+            # TODO: bcrypt
+            #if not checkpw(client_password.encode(), res['password'].encode()):
+            if not client_password == res['password']:
+                self.send_byte(packets.server_generalIncorrectPassword)
+                return
 
             del client_password, res
 
             if not u.privileges:
                 print(f'Banned user {username} attempted to login.')
-                self.send_byte(packets.server_loginBanned)
+                self.send_byte(packets.server_generalBanned)
                 return
 
             """ Login success, nothing wrong™️ """
             print(f'{username} has logged in.')
             if u.id not in [_u.id for _u in self.users]: self.users.append(u)
 
-            self.send_byte(packets.server_loginSuccess)
+            self.send_byte(packets.server_generalSuccess)
             packet = Packet(packets.server_sendUserInfo)
 
             packet.pack_data([
-                (u.id, dataTypes.INT16),
-                ([[_u.id, _u.username, _u.privileges] for _u in self.users], dataTypes.USERINFO_LIST)
+                [u.id, dataTypes.INT16],
+                [u.privileges, dataTypes.INT16],
+                [[[_u.username, _u.id, _u.privileges] for _u in self.users], dataTypes.USERINFO_LIST]
             ])
 
             self.sock.send(packet.get_data())
@@ -144,18 +148,84 @@ class Server(object):
             del packet
 
         elif packet.id == packets.client_getOnlineUsers:
-            #del packet
+            del packet
             self.sendUserList()
-        else:
-            print(f'Unfinished packet requeted -- ID: {packet.id}')
+        elif packet.id == packets.client_registerAccount:
+            resp: bytes = packet.unpack_data([dataTypes.STRING, dataTypes.STRING])
+            if len(resp) == 2: username, password = resp
+            else:
+                self.send_byte(packets.server_generalFailure)
+                return
 
+            if all((len(username) not in range(3, 17), len(password) in range(6, 33))):
+                self.send_byte(packets.server_generalFailure)
+                return
+            del packet
+
+            # Check if username already exists
+            if self.db.fetch('SELECT 1 FROM users WHERE username = %s', [username]):
+                self.send_byte(packets.server_registrationUsernameTaken)
+                return
+
+            """ Passed checks """
+
+            # Add user to DB.
+            self.db.execute(
+                'INSERT INTO users (id, username, username_safe, privileges, password) VALUES (NULL, %s, %s, 1, %s)',
+                [username, User.safe_username(username), password]
+            )
+            del username, password
+            self.send_byte(packets.server_generalSuccess)
+        elif packet.id == packets.client_addBottle: # TODO: return failed packet rather than returning during fails
+            resp: bytes = packet.unpack_data([
+                dataTypes.INT16,  # userid
+                dataTypes.BOTTLE
+            ])
+            del packet
+            if len(resp) != 4:
+                del resp
+                return
+
+            user_id = resp[0]
+            b: Bottle = Bottle(*resp[1:4])
+            del resp
+
+            if not b.is_valid():
+                del user_id
+                self.send_byte(packets.server_generalFailure)
+                return
+
+            """ Passed checks """
+            self.db.execute(
+                'INSERT INTO bottles (id, user_id, name, volume, abv) VALUES (NULL, %s, %s, %s, %s)',
+                [user_id, b.name, b.volume, b.abv]
+            )
+
+            print(f'{user_id} added bottle: {b.name} [{b.volume}ml @ {b.abv}%]')
+            self.send_byte(packets.server_generalSuccess)
+            del user_id
+        elif packet.id == packets.client_getInventory:
+            user_id: int = packet.unpack_data([dataTypes.UINT16])[0] # TODO: get_userid function?
+            del packet
+
+            if user_id not in (u.id for u in self.users):
+                return # TODO: make not_logged_in packet, generalize these
+
+            res = glob.db.fetchall('SELECT name, volume, abv FROM bottles WHERE userid = %s AND volume > 0', [])
+            if not res: return # TODO: send to client
+
+            with Packet(packets.server_sendInventory) as packet:
+                packet.pack_data([
+                    [[[row['name'], row['volume'], row['abv']] for row in res], dataTypes.BOTTLE_LIST]
+                ])
+                self.sock.send(packet.get_data())
+        else: print(f'Unfinished packet requeted -- ID: {packet.id}')
         return
 
     def sendUserList(self) -> None:
         with Packet(packets.server_sendOnlineUsers) as packet:
-            print(f'self.users: {[[u.id, u.username, u.privileges] for u in self.users]}')
             packet.pack_data([
-                [[[u.id, u.username, u.privileges] for u in self.users], dataTypes.USERINFO_LIST]
+                [[[u.username, u.id, u.privileges] for u in self.users], dataTypes.USERINFO_LIST]
             ])
             self.sock.send(packet.get_data())
         return

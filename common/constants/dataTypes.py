@@ -26,3 +26,7 @@ INT32_LIST = 14
 # Custom types, for our classes.
 USERINFO = 15
 USERINFO_LIST = 16
+BOTTLE = 17
+BOTTLE_LIST = 18
+SHOT = 19
+SHOT_LIST = 20
