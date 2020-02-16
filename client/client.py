@@ -64,6 +64,7 @@ class Client:
             if not self.is_online: # *** Not logged in. ***
                 if   choice == 1: # Login
                     self.make_request(packets.client_login)
+                    if not self.is_online: continue # failed to login
                     self.make_request(packets.client_getInventory)
                 elif choice == 2: # Register
                     self.make_request(packets.client_registerAccount)
@@ -141,14 +142,14 @@ class Client:
                 self.print_online_users()
 
             elif resp == packets.server_generalFailure:
-                print(f'{colour.LIGHTRED_EX}Invalid login parameters.', end='\n\n')
+                print(f'{colour.LIGHTRED_EX}Invalid login parameters.')
             elif resp == packets.server_generalNoSuchUsername:
-                print(f'{colour.LIGHTRED_EX}No such username found.', end='\n\n')
+                print(f'{colour.LIGHTRED_EX}No such username found.')
             elif resp == packets.server_generalIncorrectPassword:
-                print(f'{colour.LIGHTRED_EX}Incorrect password.', end='\n\n')
+                print(f'{colour.LIGHTRED_EX}Incorrect password.')
             elif resp == packets.server_generalBanned:
-                print(f'{colour.LIGHTRED_EX}Your account has been banned.', end='\n\n')
-            else: print(f'{colour.LIGHTRED_EX}Invalid packetID {resp}', end='\n\n')
+                print(f'{colour.LIGHTRED_EX}Your account has been banned.')
+            else: print(f'{colour.LIGHTRED_EX}Invalid packetID {resp}')
             #input('Press enter to continue..')
             #print('\033[F', ' ' * 25, sep='') # lol i should just make a function for wiping lines already..
             del resp, username
@@ -233,7 +234,7 @@ class Client:
 
             try: conn = Connection(sock.recv(glob.max_bytes)) # TODO: with conn
             except:
-                print('Connection died - client_getOnlineUsers.')
+                print('Connection died - client_getInventory.')
                 return
 
             with Packet() as packet:
@@ -269,11 +270,10 @@ class Client:
                 return
 
             print(
-                'Alright!',
-                "Here's what the doctor ordered:",
-                f'Drink: {b.name} [{b.abv}%]',
-                f'Volume: {vol} ({vol / b.volume}% of bottle)',
-                'Bottoms up!', end='\n\n'
+                "\nHere's what the doctor ordered:",
+                f'Drink:  {b.name} [{b.abv}%]',
+                f'Volume: {vol}ml [~{vol * b.abv:.0f} cmynts] ({(vol / b.volume) * 100:.0f}% of bottle)',
+                'Bottoms up!', sep='\n'
             )
 
             b.volume -= vol
