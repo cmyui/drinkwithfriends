@@ -19,6 +19,16 @@ class Packet(object):
         del self
         return
 
+    def _reuse(self, id: Optional[int] = None):
+        """
+        Basically reset our packet so we can reuse it lol.
+        """
+        self.id = id
+        self.data = b''
+        self.length = 0
+        self.offset = 0
+        return
+
     def get_data(self) -> bytes:
         """
         Return the request in HTTP format.
@@ -38,12 +48,12 @@ class Packet(object):
                 self.data += data.__len__().to_bytes(1, 'little')
                 for i in data: self.data += i.to_bytes(2 if type == dataTypes.INT16_LIST else 4, 'little')
             elif type == dataTypes.STRING: self.data += (b'\x0b' + data.__len__().to_bytes(1, 'little') + data.encode()) if data else b'\x00'
+            elif type == dataTypes.USERINFO: self.data += data[0].__len__().to_bytes(1, 'little') + data[0].encode() + _pack('<hh', *data[1:3])
             elif type == dataTypes.USERINFO_LIST:
                 self.data += data.__len__().to_bytes(1, 'little')
                 for u in data: self.data += u[0].__len__().to_bytes(1, 'little') + u[0].encode() + _pack('<hh', *u[1:3])
-            elif type == dataTypes.USERINFO: self.data += data[0].__len__().to_bytes(1, 'little') + data[0].encode() + _pack('<hh', *data[1:3])
-            elif type == dataTypes.BOTTLE: self.data += data[0].__len__().to_bytes(1, 'little') + data[0].encode() + _pack('<hf', *data[1:3])
-            elif type == dataTypes.BOTTLE_LIST:
+            elif type == dataTypes.DRINK: self.data += data[0].__len__().to_bytes(1, 'little') + data[0].encode() + _pack('<hf', *data[1:3])
+            elif type == dataTypes.DRINK_LIST:
                 self.data += data.__len__().to_bytes(1, 'little')
                 for b in data: self.data += b[0].__len__().to_bytes(1, 'little') + b[0].encode() + _pack('<hf', *b[1:3])
             else:
@@ -134,7 +144,7 @@ class Packet(object):
                     ])
                     self.offset += strlen + 4
                 #del unpacked
-            elif type == dataTypes.BOTTLE:
+            elif type == dataTypes.DRINK:
                 """
                 Pack a bottle's basic information.
 
@@ -153,13 +163,13 @@ class Packet(object):
                 self.offset += 2
                 unpacked.extend(_unpack('<f', self.data[self.offset:self.offset + 4])) # abv
                 self.offset += 4
-            elif type == dataTypes.BOTTLE_LIST:
+            elif type == dataTypes.DRINK_LIST:
                 """
                 Pack information about a list of bottles.
 
                 Format:
                   > 1 byte: length of bottle list.
-                  > indef. bytes: list of `BOTTLE` types.
+                  > indef. bytes: list of `DRINK` types.
                 """
                 self.offset += 1
                 for _ in range(self.data[self.offset - 1]):

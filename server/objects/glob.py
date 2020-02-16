@@ -18,4 +18,4 @@ db: Optional[MySQLConnectionPool] = None
 config: Optional[Any] = None
 debug: bool = False
 
-max_bytes: int = 128
+max_bytes: int = 512

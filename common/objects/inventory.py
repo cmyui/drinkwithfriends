@@ -7,8 +7,13 @@ class Inventory:
         self.bottles = bottles
         #self.finished_bottles: Optional[List[Bottle]] = None # maybe later
 
+    @property
+    def is_empty(self) -> bool: # cursed
+        return not bool(len(self.bottles))
+
     def __repr__(self) -> None:
-        return '\n'.join(f'[{b.volume}ml @ {b.abv}%] {b.name} ' for b in self.bottles)
+        if not len(self.bottles): return 'Your inventory is empty!\n'
+        return '\n'.join(f'#{i + 1}. [{b.volume}ml @ {b.abv}%] {b.name} ' for i, b in enumerate(self.bottles))
 
     """ Add a bottle to inventory. """
 
@@ -29,3 +34,6 @@ class Inventory:
     def __sub__(self, other: Bottle) -> List[Bottle]:
         self.bottles.remove(other)
         return self.bottles
+
+    def get_bottle(self, i: int) -> Bottle:
+        return self.bottles[i - 1] # Choice will be from list, so +1 (__repr__)

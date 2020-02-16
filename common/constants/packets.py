@@ -27,3 +27,6 @@ client_addBottle = 14
 # Request a list of our inventory of incomplete bottles.
 client_getInventory = 15
 server_sendInventory = 16
+
+# Take a shot! B)
+client_takeShot = 17

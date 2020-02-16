@@ -179,7 +179,7 @@ class Server(object):
         elif packet.id == packets.client_addBottle: # TODO: return failed packet rather than returning during fails
             resp: bytes = packet.unpack_data([
                 dataTypes.INT16,  # userid
-                dataTypes.BOTTLE
+                dataTypes.DRINK
             ])
             del packet
             if len(resp) != 4:
@@ -211,15 +211,49 @@ class Server(object):
             if user_id not in (u.id for u in self.users):
                 return # TODO: make not_logged_in packet, generalize these
 
-            res = glob.db.fetchall('SELECT name, volume, abv FROM bottles WHERE userid = %s AND volume > 0', [])
+            res = self.db.fetchall('SELECT name, volume, abv FROM bottles WHERE user_id = %s AND volume > 0', [user_id])
             if not res: return # TODO: send to client
 
             with Packet(packets.server_sendInventory) as packet:
                 packet.pack_data([
-                    [[[row['name'], row['volume'], row['abv']] for row in res], dataTypes.BOTTLE_LIST]
+                    [[[row['name'], row['volume'], row['abv']] for row in res], dataTypes.DRINK_LIST]
                 ])
                 self.sock.send(packet.get_data())
-        else: print(f'Unfinished packet requeted -- ID: {packet.id}')
+        elif packet.id == packets.client_takeShot:
+            resp: bytes = packet.unpack_data([
+                dataTypes.INT16, # userid
+                dataTypes.DRINK  # updated bottle information
+            ])
+            del packet
+            if len(resp) != 4:
+                self.send_byte(packets.server_generalFailure)
+                del resp
+                return
+
+            user_id = resp[0]
+            b: Bottle = Bottle(*resp[1:4])
+            del resp
+
+            #if not b.is_valid():
+            #    del user_id
+            #    self.send_byte(packets.server_generalFailure)
+            #    return
+
+            # Ensure the drink exists.
+            if not self.db.fetch('SELECT 1 FROM bottles WHERE user_id = %s AND name = %s AND abv = %s', [user_id, b.name, b.abv]):
+                self.send_byte(packets.server_generalFailure)
+                return
+
+            """ Passed checks """
+
+            if b.volume:
+                self.db.execute('UPDATE bottles SET volume = %s WHERE user_id = %s AND name = %s AND abv = %s', [b.volume, user_id, b.name, b.abv])
+            else: # they finished bottle, delete from db
+                self.db.execute('DELETE FROM bottles WHERE user_id = %s AND name = %s AND abv = %s', [user_id, b.name, b.abv])
+            self.send_byte(packets.server_generalSuccess)
+        else:
+            print(f'Unfinished packet requeted -- ID: {packet.id}')
+            self.send_byte(packets.server_generalFailure)
         return
 
     def sendUserList(self) -> None:
