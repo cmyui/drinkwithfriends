@@ -15,7 +15,7 @@ from objects import glob
 
 from common.objects.user import User
 from common.objects.bottle import Bottle
-from common.objects.inventory import Inventory
+from common.objects.inventory import BottleCollection
 
 from colorama import init as clr_init, Fore as colour
 clr_init(autoreset=True)
@@ -212,7 +212,9 @@ class Server(object):
                 return # TODO: make not_logged_in packet, generalize these
 
             res = self.db.fetchall('SELECT name, volume, abv FROM bottles WHERE user_id = %s AND volume > 0', [user_id])
-            if not res: return # TODO: send to client
+            if not res:
+                self.send_byte(packets.server_alreadyUpToDate)
+                return
 
             with Packet(packets.server_sendInventory) as packet:
                 packet.pack_data([
@@ -220,7 +222,7 @@ class Server(object):
                 ])
                 self.sock.send(packet.get_data())
         elif packet.id == packets.client_takeShot:
-            resp: bytes = packet.unpack_data([
+            resp: bytes = packet.unpack_data([ # TODO: only send bottleid
                 dataTypes.INT16, # userid
                 dataTypes.DRINK  # updated bottle information
             ])
@@ -240,17 +242,57 @@ class Server(object):
             #    return
 
             # Ensure the drink exists.
-            if not self.db.fetch('SELECT 1 FROM bottles WHERE user_id = %s AND name = %s AND abv = %s', [user_id, b.name, b.abv]):
+
+            res = self.db.fetch('SELECT id FROM bottles WHERE user_id = %s AND name = %s AND abv = %s', [user_id, b.name, b.abv])
+            if not res:
                 self.send_byte(packets.server_generalFailure)
                 return
 
+            bottle_id: int = res['id']
+            del res
+
             """ Passed checks """
 
-            if b.volume:
-                self.db.execute('UPDATE bottles SET volume = %s WHERE user_id = %s AND name = %s AND abv = %s', [b.volume, user_id, b.name, b.abv])
-            else: # they finished bottle, delete from db
-                self.db.execute('DELETE FROM bottles WHERE user_id = %s AND name = %s AND abv = %s', [user_id, b.name, b.abv])
+            self.db.execute( # Don't delete from inv so we can use name from bottles in ledger.
+                'UPDATE bottles SET volume = %s WHERE user_id = %s AND name = %s AND abv = %s',
+                [b.volume, user_id, b.name, b.abv]
+            )
+
+            self.db.execute( # Update ledger
+                'INSERT INTO ledger (id, user_id, volume, bottle, time) VALUES (NULL, %s, %s, %s, UNIX_TIMESTAMP())',
+                [user_id, b.volume, bottle_id]
+            )
+
+            #if b.volume:
+            #    self.db.execute('UPDATE bottles SET volume = %s WHERE user_id = %s AND name = %s AND abv = %s', [b.volume, user_id, b.name, b.abv])
+            #else: # they finished bottle, delete from db
+            #    self.db.execute('DELETE FROM bottles WHERE user_id = %s AND name = %s AND abv = %s', [user_id, b.name, b.abv])
+
+
             self.send_byte(packets.server_generalSuccess)
+        elif packet.id == packets.client_getLedger:
+            user_id: int = packet.unpack_data([dataTypes.INT16])[0]
+            del packet
+
+            if user_id not in (u.id for u in self.users):
+                return # TODO: make not_logged_in packet, generalize these
+
+            res = self.db.fetchall('''
+                SELECT bottles.name, ledger.volume, bottles.abv
+                FROM ledger
+                LEFT JOIN bottles ON bottles.id = ledger.bottle
+                WHERE ledger.user_id = %s''', [user_id]
+            )
+
+            if not res:
+                self.send_byte(packets.server_alreadyUpToDate)
+                return
+
+            with Packet(packets.server_sendInventory) as packet:
+                packet.pack_data([
+                    [[[row['name'], row['volume'], row['abv']] for row in res], dataTypes.DRINK_LIST]
+                ])
+                self.sock.send(packet.get_data())
         else:
             print(f'Unfinished packet requeted -- ID: {packet.id}')
             self.send_byte(packets.server_generalFailure)

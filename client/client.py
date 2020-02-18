@@ -1,17 +1,18 @@
 from typing import List, Tuple, Optional, Union
 from socket import socket, AF_INET, SOCK_STREAM, error as sock_err
-from sys import exit
-from time import sleep
+from sys import exit, stdout
+from time import sleep, time
 from re import match as re_match
 from numpy import arange # float range() function
 #from bcrypt import hashpw, gensalt
 from random import randint
+from getpass import getpass
 
 from objects import glob
 
 from common.objects.user import User
 from common.objects.bottle import Bottle
-from common.objects.inventory import Inventory
+from common.objects.inventory import BottleCollection
 from common.constants import dataTypes, packets, privileges
 from common.helpers.packetHelper import Packet, Connection
 #from objects import glob # not yet needed
@@ -25,9 +26,13 @@ class Client:
         self.version = 100
         self.debug = debug
 
+        self.lines_printed = 0
+
         """ User information (our client user). """
         self.user = User() # User object for the player. Will be used if playing online.
-        self.inventory = Inventory([]) # Our user's inventory. Will be used if playing online.
+        self.inventory = BottleCollection('Inventory', []) # Our user's inventory. Will be used if playing online.
+        self.ledger = BottleCollection('Ledger', [])
+        self.ledger.unit = 'shots'
 
         self.online_users: List[User] = [] # A list of online users connected to the server. Inclues our user.
 
@@ -54,18 +59,25 @@ class Client:
 
             choice_count: int = 2
             if self.is_online:
-                if self.user.privileges & privileges.USER_PERMS:  choice_count += 5 # 6 with ledger
+                if self.user.privileges & privileges.USER_PERMS:  choice_count += 6
                 if self.user.privileges & privileges.ADMIN_PERMS: choice_count += 2
 
             choice: int = self.get_user_int(0, choice_count)
 
             if not choice: break # Exit
 
+            self.move_cursor_up(1 + choice_count + self.lines_printed, 43)
+            self.lines_printed = 0
+
             if not self.is_online: # *** Not logged in. ***
                 if   choice == 1: # Login
                     self.make_request(packets.client_login)
                     if not self.is_online: continue # failed to login
+
+                    self.log_debug('Getting inventory.')
                     self.make_request(packets.client_getInventory)
+                    self.log_debug('Getting ledger.')
+                    self.make_request(packets.client_getLedger)
                 elif choice == 2: # Register
                     self.make_request(packets.client_registerAccount)
             else: # *** Logged in. ***
@@ -78,7 +90,8 @@ class Client:
                     self.make_request(packets.client_addBottle)
                     self.make_request(packets.client_getInventory)
                 elif choice == 4: # Display your inventory.
-                    print(self.inventory)
+                    self.inventory.display()
+                    self.lines_printed += (self.inventory.bottles.__len__() + 2 if self.inventory.bottles else 3)
                 elif choice == 5: # Take a shot
                     if self.inventory.is_empty:
                         print(
@@ -88,7 +101,10 @@ class Client:
                         continue
 
                     self.make_request(packets.client_takeShot)
-                elif choice == 6: pass # Check your ledger.
+                    #self.make_request(packets.client_getLedger)
+                elif choice == 6:
+                    self.ledger.display() # Check your ledger.
+                    self.lines_printed += (self.ledger.bottles.__len__() + 2 if self.ledger.bottles else 3)
 
                 # Admin
                 elif choice == 7: pass # Ban user?
@@ -99,7 +115,7 @@ class Client:
         with socket(AF_INET, SOCK_STREAM) as sock:
             try: sock.connect((glob.ip, glob.port))
             except sock_err as err:
-                print(f'{colour.LIGHTRED_EX}Failed to establish a connection to the server: {err}.\n')
+                self.log_error(f'Failed to establish a connection to the server: {err}.\n')
                 return
 
             # We've established a valid connection.
@@ -110,7 +126,9 @@ class Client:
     def _handle_connection(self, sock: socket, packet: Packet) -> None:
         if packet.id == packets.client_login:
             username: str = input('Username: ') # newline to space from menu
-            password: str = input('Password: ')
+            password: str = getpass()
+            print() # Print new line to split from.. everything
+
             packet.pack_data([
                 [username, dataTypes.STRING],
                 [password, dataTypes.STRING],
@@ -124,11 +142,11 @@ class Client:
             resp: int = ord(sock.recv(1))
 
             if resp == packets.server_generalSuccess:
-                print(f'{colour.LIGHTGREEN_EX}Authenticated.')
+                self.log_info('Authenticated.')
 
                 try: conn = Connection(sock.recv(glob.max_bytes))
                 except:
-                    print('Connection died - server_generalSuccess.')
+                    self.log_error('Connection died - server_generalSuccess.')
                     del resp, username
                     return
 
@@ -142,20 +160,20 @@ class Client:
                 self.print_online_users()
 
             elif resp == packets.server_generalFailure:
-                print(f'{colour.LIGHTRED_EX}Invalid login parameters.')
+                self.log_error('Invalid login parameters.')
             elif resp == packets.server_generalNoSuchUsername:
-                print(f'{colour.LIGHTRED_EX}No such username found.')
+                self.log_error('No such username found.')
             elif resp == packets.server_generalIncorrectPassword:
-                print(f'{colour.LIGHTRED_EX}Incorrect password.')
+                self.log_error('Incorrect password.')
             elif resp == packets.server_generalBanned:
-                print(f'{colour.LIGHTRED_EX}Your account has been banned.')
-            else: print(f'{colour.LIGHTRED_EX}Invalid packetID {resp}')
+                self.log_error('Your account has been banned.')
+            else: self.log_error(f'Invalid packetID {resp}')
             #input('Press enter to continue..')
             #print('\033[F', ' ' * 25, sep='') # lol i should just make a function for wiping lines already..
             del resp, username
             return
         elif packet.id == packets.client_logout:
-            print(f'{colour.YELLOW}Logging out..')
+            self.log_info('Logging out..', colour.YELLOW)
             packet.pack_data([[self.user.id, dataTypes.INT16]])
             sock.send(packet.get_data())
             del packet
@@ -167,7 +185,7 @@ class Client:
 
             try: conn = Connection(sock.recv(glob.max_bytes)) # TODO: with conn
             except:
-                print('Connection died - client_getOnlineUsers.')
+                self.log_error('Connection died - client_getOnlineUsers.')
                 return
 
             with Packet() as packet:
@@ -181,10 +199,11 @@ class Client:
             print(
                 'Registration',
                 '------------',
-                f'{colour.RED}NOTE: currently in plaintext, do not use a real password!\n'
+                f'{colour.RED}NOTE: currently in plaintext, do not use a real password!\n',
+                sep='\n'
             )
-            username: str = self.get_user_str_lenrange('Username: ', 3, 16)
-            password: str = self.get_user_str_lenrange('Password: ', 6, 32)
+            username: str = self.get_user_str_lenrange(3, 16, 'Username: ')
+            password: str = self.get_user_str_lenrange(6, 32, 'Password: ')
             packet.pack_data([
                 [username, dataTypes.STRING],
                 [password, dataTypes.STRING]
@@ -194,11 +213,11 @@ class Client:
 
             resp: int = ord(sock.recv(1))
             if resp == packets.server_generalSuccess:
-                print(f'{colour.LIGHTGREEN_EX}Account successfully created.')
+                self.log_error('Account successfully created.')
             elif resp == packets.server_registrationUsernameTaken:
-                print(f'{colour.LIGHTRED_EX}That username is already taken!')
+                self.log_error('That username is already taken!')
             elif resp == packets.server_generalFailure:
-                print(f'{colour.LIGHTRED_EX}Invalid parameters.')
+                self.log_error('Invalid parameters.')
             del username, password
         elif packet.id == packets.client_addBottle:
             print(
@@ -222,9 +241,9 @@ class Client:
             if resp == packets.server_generalSuccess:
                 self.inventory += b
                 # TODO: nice print function for inventory
-                print(f'\n{colour.LIGHTBLUE_EX}Added a bottle to your inventory.\n{self.inventory}\n')
+                self.log_info(f'"{b.name}" has been added to your inventory.')
             elif resp == packets.server_generalFailure:
-                print(f'{colour.LIGHTRED_EX}Server failed to add bottle to database.')
+                self.log_error('Server failed to add bottle to database.')
             del b
         elif packet.id == packets.client_getInventory:
             #print(f'{colour.YELLOW}Requesting inventory from server..')
@@ -232,19 +251,25 @@ class Client:
             sock.send(packet.get_data())
             del packet
 
+            resp: int = ord(sock.recv(1))
+            if resp == packets.server_alreadyUpToDate:
+                self.log
+                return
+            del resp
+
             try: conn = Connection(sock.recv(glob.max_bytes)) # TODO: with conn
             except:
-                print('Connection died - client_getInventory.')
+                self.log_error('Connection died - client_getInventory.')
                 return
 
             with Packet() as packet:
                 packet.read_data(conn.body)
                 resp = packet.unpack_data([dataTypes.DRINK_LIST])
 
-            self.inventory = Inventory([Bottle(*b) for b in resp])
+            self.inventory = BottleCollection('Inventory', [Bottle(*b) for b in resp])
         elif packet.id == packets.client_takeShot:
             if self.get_user_bool('Would you like to choose your drink?\n>> '):
-                print(self.inventory)
+                self.inventory.display()
                 b = self.inventory.get_bottle(self.get_user_int(1, len(self.inventory.bottles)))
             else:
                 b = self.inventory.get_bottle(randint(1, len(self.inventory.bottles)))
@@ -263,11 +288,9 @@ class Client:
 
             resp: int = ord(sock.recv(1))
             if resp == packets.server_generalFailure:
-                print(
-                    'An error occurred while syncing with the server.',
-                    'The shot has not been subtracted from your bottle due to this error.'
-                )
+                self.log_error('An error has occurred while syncing with the server. Your inventory has not been modified.')
                 return
+            del resp
 
             print(
                 "\nHere's what the doctor ordered:",
@@ -275,19 +298,42 @@ class Client:
                 f'Volume: {vol}ml [~{vol * b.abv:.0f} cmynts] ({(vol / b.volume) * 100:.0f}% of bottle)',
                 'Bottoms up!', sep='\n'
             )
+            self.lines_printed += 5
 
             b.volume -= vol
+            self.ledger += b
 
             if not b.volume: # finished the bottle
-                print(f"{colour.YELLOW}You've finished your {b.name}!")
+                self.log_info(f"You've finished your {b.name}!", colour.YELLOW)
                 self.inventory -= b
-        else:
-            print(f'{colour.YELLOW}[WARN] Unfinished packet.')
-            input(f'{colour.MAGENTA}Waiting for user input to continue..')
+        elif packet.id == packets.client_getLedger:
+            packet.pack_data([
+                [self.user.id, dataTypes.INT16]
+            ])
+            sock.send(packet.get_data())
+            del packet
+
+            resp: int = ord(sock.recv(1))
+            if resp == packets.server_alreadyUpToDate:
+                return
+            del resp
+
+            try: conn = Connection(sock.recv(glob.max_bytes)) # TODO: with conn
+            except:
+                self.log_error('Connection died - client_getLedger.')
+                return
+
+            with Packet() as packet:
+                packet.read_data(conn.body)
+                resp = packet.unpack_data([dataTypes.DRINK_LIST])
+            self.ledger = BottleCollection('Ledger', [Bottle(*b) for b in resp])
+            self.ledger.unit = 'shots'
+            del resp
+        else: # Unknown packet ID.
+            self.log_warn(f'Recieved an unknown packet. (ID: {packet.id})')
         return
 
-    @staticmethod
-    def get_user_str_lenrange(min: int, max: int, message: Optional[str] = None) -> str: # ugly name but what else??
+    def get_user_str_lenrange(self, min: int, max: int, message: Optional[str] = None) -> str: # ugly name but what else??
         """
         Get a string with the length in range min-max (inclusive) from stdin.
         """
@@ -295,10 +341,9 @@ class Client:
             tmp: str = input(message if message else '>')
             if len(tmp) in range(min, max + 1): return tmp
             # TODO: print backspace to clean up previous failures? keep menu on screen..
-            print(f'{colour.LIGHTRED_EX}Input string must be between {min}-{max} characters.')
+            self.log_error(f'Input string must be between {min}-{max} characters.')
 
-    @staticmethod
-    def get_user_int(min: int, max: int, message: Optional[str] = None) -> int:
+    def get_user_int(self, min: int, max: int, message: Optional[str] = None) -> int:
         """
         Get a single integer in range min-max (inclusive) from stdin.
         """
@@ -306,10 +351,9 @@ class Client:
             tmp: str = input(message if message else '> ')
             if re_match(r'^-?\d+$', tmp) and int(tmp) in range(min, max + 1): return int(tmp)
             # TODO: print backspace to clean up previous failures? keep menu on screen..
-            print(f'{colour.LIGHTRED_EX}Please enter a valid value.')
+            self.log_error('Please enter a valid value.')
 
-    @staticmethod
-    def get_user_float(min: float, max: float, message: Optional[str] = None) -> float:
+    def get_user_float(self, min: float, max: float, message: Optional[str] = None) -> float:
         """
         Get a single float in range min-max (inclusive) from stdin.
         """
@@ -317,25 +361,22 @@ class Client:
             tmp: str = input(message if message else '> ')
             if re_match(r'^-?\d+(?:\.\d+)?$', tmp) and float(tmp) in arange(min, max + 1): return float(tmp)
             # TODO: print backspace to clean up previous failures? keep menu on screen..
-            print(f'{colour.LIGHTRED_EX}Please enter a valid value.')
+            self.log_error('Please enter a valid value.')
 
-    @staticmethod
-    def get_user_bool(message: Optional[str] = None) -> bool:
+    def get_user_bool(self, message: Optional[str] = None) -> bool:
         """
         Get a bool from stdin (message must contain 'y' and not contain 'n').
         """
         while True:
             tmp: str = input(message if message else '> ')
             if not re_match(r'^(?:y|n)(?:.*)$', tmp):
-                print(f'{colour.LIGHTRED_EX}Please enter a valid value.')
+                self.log_error('Please enter a valid value.')
                 continue
             return tmp.startswith('y')
-            # TODO: print backspace to clean up previous failures? keep menu on screen..
 
     def print_main_menu(self) -> None:
         print('', # Print a space at the top of menu.
             f'{colour.CYAN}<- {colour.YELLOW}Main Menu {colour.CYAN}->',
-            '0. Exit',
             sep='\n'
         )
 
@@ -347,12 +388,9 @@ class Client:
             )
         else: # *** Logged in. ***
             print(
-                '1. Logout',
-                '2. List online users.',
-                '3. Add bottle.',
-                '4. Display your inventory',
-                '5. Take a shot.',
-                #'6. Check your ledger.',
+                '1. Logout       | 2. List online users.',
+                '3. Add bottle.  | 4. Display your inventory',
+                '5. Take a shot. | 6. Check your ledger.',
                 sep='\n'
             )
 
@@ -364,14 +402,47 @@ class Client:
             #    '10. Shutdown server.', sep='\n'
             #)
 
-        print() # Print an extra space at the end of the menu
+        print('0. Exit.', end='\n\n')
         return
 
     def print_online_users(self) -> None:
         print(f'\n{colour.CYAN}<- {colour.YELLOW}Online Users {colour.CYAN}->')
         for u in self.online_users: print(f'{u.id} - {u.username}.')
-        #print('')
+        self.lines_printed += self.online_users.__len__() + 2
+        return
+
+    @staticmethod
+    def move_cursor_up(count: int = 1, spaces: int = 0) -> None:
+        for _ in range(count + 1):
+            stdout.write('\033[F')
+            if not spaces: continue
+            stdout.write(' ' * spaces)
+        if spaces: stdout.write('\r')
+        return
+
+    def log_info(self, message: str, col: int = colour.LIGHTBLUE_EX) -> None:
+        self._print('[INFO]', message, col)
+        return
+
+    def log_warn(self, message: str) -> None:
+        self._print('[WARN]', message, colour.YELLOW)
+        return
+
+    def log_error(self, message: str) -> None:
+        self._print('[ERR]', message, colour.LIGHTRED_EX)
+        return
+
+    def log_debug(self, message: str) -> None:
+        if self.debug:
+            self._print('[DEBUG]', message, colour.LIGHTBLUE_EX)
+        return
+
+    def _print(self, prefix: str, message: str, col: int) -> None:
+        print(f'[{prefix}] {col}{message}')
+        for c in message: # add line for each \n found in message as well
+            if c == '\n': self.lines_printed += 1
+        self.lines_printed =+ 1
         return
 
 if __name__ == '__main__':
-    Client(True, input('Launch in debug?\n>> ').startswith('y'))
+    Client(True, False)#input('Launch in debug?\n>> ').startswith('y'))

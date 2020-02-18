@@ -30,3 +30,8 @@ server_sendInventory = 16
 
 # Take a shot! B)
 client_takeShot = 17
+
+client_getLedger = 18
+server_sendLedger = 19
+
+server_alreadyUpToDate = 20
